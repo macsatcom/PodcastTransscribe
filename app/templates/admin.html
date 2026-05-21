@@ -16,20 +16,23 @@
 
       <template x-if="modelsLoaded">
         <div>
-          <label class="block text-sm mb-1 mt-3">Transcription (Whisper / Audio endpoint)</label>
+          <label class="block text-sm mb-1 mt-3">Transcription Model</label>
           <select x-model="transcriptionModel" class="w-full p-2 rounded bg-gray-800 border border-gray-700 text-sm mb-3">
             <option value="">Select model...</option>
-            <template x-for="m in models.transcription" :key="m">
-              <option :value="m" x-text="m" :selected="m === transcriptionModel"></option>
-            </template>
-          </select>
-
-          <label class="block text-sm mb-1">Audio Chat (Multimodal / Chat completions)</label>
-          <select x-model="chatAudioModel" class="w-full p-2 rounded bg-gray-800 border border-gray-700 text-sm mb-3">
-            <option value="">Select model...</option>
-            <template x-for="m in models.chat_audio" :key="m">
-              <option :value="m" x-text="m" :selected="m === chatAudioModel"></option>
-            </template>
+            <optgroup label="Local">
+              <option value="local-whisper" :selected="transcriptionModel === 'local-whisper'">local-whisper (indbygget)</option>
+              <option value="self-hosted-whisper" :selected="transcriptionModel === 'self-hosted-whisper'">self-hosted-whisper (ekstern)</option>
+            </optgroup>
+            <optgroup label="OpenRouter Audio">
+              <template x-for="m in models.chat_audio" :key="m">
+                <option :value="m" x-text="m" :selected="m === transcriptionModel"></option>
+              </template>
+            </optgroup>
+            <optgroup label="OpenRouter Transcription">
+              <template x-for="m in models.transcription" :key="m">
+                <option :value="m" x-text="m" :selected="m === transcriptionModel"></option>
+              </template>
+            </optgroup>
           </select>
 
           <label class="block text-sm mb-1">Summarization Model</label>
@@ -200,7 +203,6 @@ function adminView() {
   return {
     apiKey: '',
       transcriptionModel: '',
-      chatAudioModel: '',
       summarizationModel: '',
       embeddingModel: '',
       selfHostedUrl: '',
@@ -264,7 +266,6 @@ function adminView() {
     async saveModels() {
       const body = {};
       if (this.transcriptionModel) body.transcription_model = this.transcriptionModel;
-      if (this.chatAudioModel) body.chat_audio_model = this.chatAudioModel;
       if (this.summarizationModel) body.summarization_model = this.summarizationModel;
       if (this.embeddingModel) body.embedding_model = this.embeddingModel;
 

@@ -10,7 +10,6 @@ router = APIRouter(prefix="/api/settings", tags=["settings"])
 VALID_KEYS = {
     "openrouter_api_key",
     "transcription_model",
-    "chat_audio_model",
     "summarization_model",
     "embedding_model",
     "self_hosted_whisper_url",

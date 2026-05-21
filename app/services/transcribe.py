@@ -7,14 +7,13 @@ from httpx import HTTPStatusError
 logger = logging.getLogger(__name__)
 
 TRANSCRIPTION_MODEL_KEY = "transcription_model"
-CHAT_AUDIO_MODEL_KEY = "chat_audio_model"
 SELF_HOSTED_URL_KEY = "self_hosted_whisper_url"
-DEFAULT_CHAT_AUDIO_MODEL = "openai/gpt-audio-mini"
+DEFAULT_MODEL = "openai/gpt-audio-mini"
 
 
 async def transcribe_audio(session, audio_data: bytes) -> tuple[str, dict | None]:
     setting = await session.get(Setting, TRANSCRIPTION_MODEL_KEY)
-    model = setting.value if setting else None
+    model = setting.value if setting else DEFAULT_MODEL
 
     if model == "local-whisper":
         return await transcribe_local(audio_data)
@@ -25,19 +24,8 @@ async def transcribe_audio(session, audio_data: bytes) -> tuple[str, dict | None
         return await transcribe_self_hosted(audio_data, url)
 
     api_key = await get_api_key(session)
-
-    if model:
-        async with OpenRouterClient(api_key=api_key) as client:
-            result = await client.transcribe_with_timestamps(model, audio_data)
-            full_text = result.get("text", "")
-            segments = result.get("segments", None)
-            if full_text:
-                return full_text, segments
-
-    setting = await session.get(Setting, CHAT_AUDIO_MODEL_KEY)
-    fallback = setting.value if setting else DEFAULT_CHAT_AUDIO_MODEL
     async with OpenRouterClient(api_key=api_key) as client:
-        result = await client.transcribe_with_timestamps(fallback, audio_data)
+        result = await client.transcribe_with_timestamps(model, audio_data)
         full_text = result.get("text", "")
         segments = result.get("segments", None)
         return full_text, segments
