@@ -31,7 +31,7 @@ async def process_episode(episode_id):
             episode.status = "transcribing"
             await session.commit()
 
-            full_text, segments = await transcribe_audio(session, audio_data)
+            full_text, segments, model_used = await transcribe_audio(session, audio_data)
             t2 = time.monotonic()
             logger.info("EPISODE %s: transcribe took %.0fs", episode_id, t2 - t1)
 
@@ -71,9 +71,12 @@ async def process_episode(episode_id):
                 )
                 session.add(chunk)
 
+            total = time.monotonic() - t0
+            episode.model_used = model_used
+            episode.processing_seconds = int(total)
             episode.status = "ready"
             await session.commit()
-            logger.info("EPISODE %s: total %.0fs — ready", episode_id, time.monotonic() - t0)
+            logger.info("EPISODE %s: total %.0fs — ready", episode_id, total)
 
         except Exception as e:
             await session.rollback()

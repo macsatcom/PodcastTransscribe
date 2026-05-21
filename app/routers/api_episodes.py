@@ -36,6 +36,8 @@ async def list_episodes(
             "published_at": e.published_at.isoformat() if e.published_at else None,
             "status": e.status,
             "error_message": e.error_message,
+            "model_used": e.model_used,
+            "processing_seconds": e.processing_seconds,
         }
         for e in episodes
     ]
@@ -59,6 +61,8 @@ async def get_episode(episode_id: UUID, db: AsyncSession = Depends(get_db)):
         "published_at": episode.published_at.isoformat() if episode.published_at else None,
         "status": episode.status,
         "error_message": episode.error_message,
+        "model_used": episode.model_used,
+        "processing_seconds": episode.processing_seconds,
         "transcript": {
             "full_text": transcript.full_text if transcript else None,
             "summary": transcript.summary if transcript else None,

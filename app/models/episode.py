@@ -21,6 +21,8 @@ class Episode(Base):
     published_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
     status: Mapped[str] = mapped_column(Text, nullable=False, default="new", index=True)
     error_message: Mapped[str] = mapped_column(Text, nullable=True)
+    model_used: Mapped[str] = mapped_column(Text, nullable=True)
+    processing_seconds: Mapped[int] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     podcast = relationship("Podcast", back_populates="episodes")

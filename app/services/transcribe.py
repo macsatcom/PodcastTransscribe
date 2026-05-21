@@ -11,21 +11,23 @@ SELF_HOSTED_URL_KEY = "self_hosted_whisper_url"
 DEFAULT_MODEL = "openai/gpt-audio-mini"
 
 
-async def transcribe_audio(session, audio_data: bytes) -> tuple[str, dict | None]:
+async def transcribe_audio(session, audio_data: bytes) -> tuple[str, dict | None, str]:
     setting = await session.get(Setting, TRANSCRIPTION_MODEL_KEY)
     model = setting.value if setting else DEFAULT_MODEL
 
     if model == "local-whisper":
-        return await transcribe_local(audio_data)
+        text, segs = await transcribe_local(audio_data)
+        return text, segs, model
 
     if model == "self-hosted-whisper":
         url_setting = await session.get(Setting, SELF_HOSTED_URL_KEY)
         url = url_setting.value if url_setting else "http://192.168.1.75:9000"
-        return await transcribe_self_hosted(audio_data, url)
+        text, segs = await transcribe_self_hosted(audio_data, url)
+        return text, segs, model
 
     api_key = await get_api_key(session)
     async with OpenRouterClient(api_key=api_key) as client:
         result = await client.transcribe_with_timestamps(model, audio_data)
         full_text = result.get("text", "")
         segments = result.get("segments", None)
-        return full_text, segments
+        return full_text, segments, model

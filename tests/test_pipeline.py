@@ -9,7 +9,7 @@ async def test_process_episode_full_flow():
     mock_transcript_text = "This is a test transcript with several words for testing."
     mock_segments = [{"start": 0.0, "end": 5.0, "text": "This is a test transcript"}]
     mock_summary = "Test summary."
-    mock_embedding = [0.1] * 1536
+    mock_embedding = [0.1] * 3072
 
     with (
         patch("app.services.pipeline.async_session") as mock_session_factory,
@@ -31,7 +31,7 @@ async def test_process_episode_full_flow():
         mock_adapter.fetch_audio.return_value = mock_audio_bytes
         mock_adapter_cls.return_value = mock_adapter
 
-        mock_transcribe.return_value = (mock_transcript_text, mock_segments)
+        mock_transcribe.return_value = (mock_transcript_text, mock_segments, "test-model")
         mock_summarize.return_value = mock_summary
         mock_embed.return_value = [mock_embedding]
 
