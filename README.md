@@ -63,6 +63,38 @@ Create branded search pages exposed on separate ports:
 
 Ports 9000-9010 are pre-exposed in docker-compose.
 
+## Local Whisper (Optional)
+
+For offline transcription without OpenRouter, you can run a local Whisper service:
+
+### CPU / NVIDIA GPU
+
+```bash
+docker compose --profile whisper up -d
+```
+
+This starts a Whisper ASR service using `onerahmet/openai-whisper-asr-webservice` with the `large-v3` model. First start downloads ~3GB model. Then select `local-whisper` in Admin → Transcription Model.
+
+### AMD ROCm GPU
+
+```bash
+docker compose --profile whisper-rocm up -d
+```
+
+Uses `jjajjara/rocm-whisper-api` for AMD GPU acceleration.
+
+### Jetson Orin Nano (remote)
+
+Run whisper.cpp server on your Jetson, then set your Jetson's URL in Admin → Jetson Whisper URL and select `jetson-whisper` as Transcription Model.
+
+### Model sizes
+
+- `large-v3` (~3GB) — best accuracy, supports Danish. Requires ~6GB RAM.
+- `medium` (~1.5GB) — good balance.
+- `small` (~500MB) — faster, slightly less accurate.
+
+Set `ASR_MODEL` environment variable to change model size.
+
 ## API Endpoints
 
 | Endpoint | Description |

@@ -10,8 +10,10 @@ router = APIRouter(prefix="/api/settings", tags=["settings"])
 VALID_KEYS = {
     "openrouter_api_key",
     "transcription_model",
+    "chat_audio_model",
     "summarization_model",
     "embedding_model",
+    "jetson_whisper_url",
 }
 
 
@@ -40,7 +42,7 @@ async def update_settings(
     return {"status": "saved"}
 
 
-def _classify_model(mid: str, modality: str) -> list[str]:
+def _classify_chat_model(mid: str, modality: str) -> list[str]:
     ml = mid.lower()
     mod = modality.lower()
     cats = []
@@ -49,15 +51,16 @@ def _classify_model(mid: str, modality: str) -> list[str]:
         cats.append("embedding")
         return cats
 
-    is_chat = "/" in mid
-    is_audio_model = "whisper" in ml or "deepgram" in ml or "assemblyai" in ml
-    accepts_audio = "audio" in mod
-    outputs_text = "->text" in mod
+    has_slash = "/" in mid
+    accepts_audio = "audio" in mod and "->text" in mod
+    is_transcription_only = mod == "audio->transcription"
 
-    if is_audio_model or (accepts_audio and outputs_text):
-        cats.append("transcription")
-
-    if is_chat:
+    if is_transcription_only:
+        pass
+    elif accepts_audio and has_slash:
+        cats.append("chat_audio")
+        cats.append("chat")
+    elif has_slash:
         cats.append("chat")
 
     return cats
@@ -70,10 +73,23 @@ async def list_models(db: AsyncSession = Depends(get_db)):
 
     defaults = {
         "transcription": [
+            "local-whisper",
+            "jetson-whisper",
+            "openai/whisper-1",
+            "openai/whisper-large-v3",
+            "openai/whisper-large-v3-turbo",
+            "openai/gpt-4o-mini-transcribe",
+            "openai/gpt-4o-transcribe",
+            "google/chirp-3",
+            "mistralai/voxtral-mini-transcribe",
+            "qwen/qwen3-asr-flash-2026-02-10",
+        ],
+        "chat_audio": [
             "openai/gpt-audio-mini",
             "openai/gpt-audio",
             "openai/gpt-4o-audio-preview",
             "mistralai/voxtral-small-24b-2507",
+            "google/gemini-2.0-flash-001",
         ],
         "chat": [
             "openai/gpt-4o-mini",
@@ -94,25 +110,41 @@ async def list_models(db: AsyncSession = Depends(get_db)):
         return defaults
 
     async with httpx.AsyncClient(timeout=30) as client:
-        response = await client.get(
-            "https://openrouter.ai/api/v1/models",
-            headers={"Authorization": f"Bearer {api_key}"},
+        headers = {"Authorization": f"Bearer {api_key}"}
+
+        resp = await client.get(
+            "https://openrouter.ai/api/v1/models?output_modalities=transcription",
+            headers=headers,
         )
-        if response.status_code != 200:
-            return defaults
-        data = response.json().get("data", [])
+        transcription_models = set()
+        if resp.status_code == 200:
+            for m in resp.json().get("data", []):
+                transcription_models.add(m.get("id", ""))
 
-    classified = {"transcription": set(), "chat": set(), "embedding": set()}
+        resp = await client.get(
+            "https://openrouter.ai/api/v1/models",
+            headers=headers,
+        )
+        chat_audio_set = set()
+        chat_set = set()
+        embedding_set = set()
 
-    for m in data:
-        mid = m.get("id", "")
-        arch = m.get("architecture", {}) or {}
-        modality = arch.get("modality", "")
-        for cat in _classify_model(mid, modality):
-            classified[cat].add(mid)
+        if resp.status_code == 200:
+            for m in resp.json().get("data", []):
+                mid = m.get("id", "")
+                arch = m.get("architecture", {}) or {}
+                modality = arch.get("modality", "")
+                for cat in _classify_chat_model(mid, modality):
+                    if cat == "chat_audio":
+                        chat_audio_set.add(mid)
+                    elif cat == "chat":
+                        chat_set.add(mid)
+                    elif cat == "embedding":
+                        embedding_set.add(mid)
 
     return {
-        "transcription": sorted(classified["transcription"] | set(defaults["transcription"])),
-        "chat": sorted(classified["chat"] | set(defaults["chat"])),
-        "embedding": sorted(classified["embedding"] | set(defaults["embedding"])),
+        "transcription": sorted(transcription_models | set(defaults["transcription"])),
+        "chat_audio": sorted(chat_audio_set | set(defaults["chat_audio"])),
+        "chat": sorted(chat_set | set(defaults["chat"])),
+        "embedding": sorted(embedding_set | set(defaults["embedding"])),
     }

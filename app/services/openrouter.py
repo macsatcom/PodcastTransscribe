@@ -42,7 +42,28 @@ class OpenRouterClient:
         response.raise_for_status()
         return response.json()
 
+    def _is_whisper_model(self, model: str) -> bool:
+        ml = model.lower()
+        return any(kw in ml for kw in ["whisper", "transcribe", "chirp"])
+
     async def transcribe_with_timestamps(self, model: str, audio_data: bytes) -> dict:
+        if self._is_whisper_model(model):
+            return await self._whisper_transcribe(model, audio_data)
+        return await self._chat_transcribe(model, audio_data)
+
+    async def _whisper_transcribe(self, model: str, audio_data: bytes) -> dict:
+        files = {"file": ("audio.mp3", audio_data, "audio/mpeg")}
+        response = await self._http.post(
+            f"{self.base_url}/audio/transcriptions",
+            headers={"Authorization": f"Bearer {self.api_key}"},
+            data={"model": model, "response_format": "verbose_json"},
+            files=files,
+        )
+        response.raise_for_status()
+        result = response.json()
+        return {"text": result.get("text", ""), "segments": result.get("segments")}
+
+    async def _chat_transcribe(self, model: str, audio_data: bytes) -> dict:
         import base64, subprocess, tempfile, os
 
         with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as f:

@@ -26,8 +26,46 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://podcast:podcast@db/podcast_transcribe
       OPENROUTER_API_KEY: "${OPENROUTER_API_KEY}"
+      LOCAL_WHISPER_URL: "${LOCAL_WHISPER_URL:-http://whisper-cpu:9000}"
+
+  # CPU / NVIDIA GPU — onerahmet/openai-whisper-asr-webservice
+  whisper-cpu:
+    image: onerahmet/openai-whisper-asr-webservice:latest
+    profiles: ["whisper"]
+    ports:
+      - "0.0.0.0:9000:9000"
+    volumes:
+      - whisper_models:/root/.cache/whisper
+    environment:
+      - ASR_MODEL=large-v3
+      - ASR_ENGINE=openai_whisper
+    deploy:
+      resources:
+        limits:
+          memory: 6G
+    restart: unless-stopped
+
+  # AMD ROCm — jjajjara/rocm-whisper-api
+  whisper-rocm:
+    image: jjajjara/rocm-whisper-api:latest
+    profiles: ["whisper-rocm"]
+    ports:
+      - "0.0.0.0:9001:9000"
+    volumes:
+      - whisper_models:/root/.cache/whisper
+    environment:
+      - ASR_MODEL=large-v3
+    devices:
+      - /dev/kfd
+      - /dev/dri
+    deploy:
+      resources:
+        limits:
+          memory: 6G
+    restart: unless-stopped
 
 volumes:
   pgdata:
   audio_cache:
   portal_images:
+  whisper_models:

@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
     audio_temp_dir: str = "/tmp/audio"
     portal_images_dir: str = "/app/portal_images"
+    local_whisper_url: str = "http://whisper-cpu:9000"
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
