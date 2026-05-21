@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ portal.title }}</title>
+  <script src="https://unpkg.com/alpinejs@3.14.8" defer></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { margin: 0; min-height: 100vh; }
+    .bg-gradient { background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #0f172a 100%); }
+    .bg-overlay { background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.85)); }
+  </style>
+</head>
+<body class="text-white"
+      x-data="searchView()"
+      :class="hasBg ? '' : 'bg-gradient'"
+      :style="hasBg ? 'background: url(' + bgImage + ') center/cover fixed no-repeat; background-size: cover; min-height: 100vh;' : ''">
+
+  <div :class="hasBg ? 'bg-overlay' : ''" style="min-height:100vh">
+    <div class="mx-auto max-w-4xl px-4 py-12">
+      <div class="text-center mb-10">
+        <h1 class="text-4xl font-bold mb-3" x-text="portal.title"></h1>
+        <p x-show="portal.description" class="text-lg text-gray-300" x-text="portal.description"></p>
+      </div>
+
+      <div class="space-y-3 mb-8">
+        <div>
+          <label class="text-xs text-gray-400 mb-1 block">Nøgleord</label>
+          <input type="text" x-model="keyword" @keyup.enter="doSearch()"
+                 placeholder="f.eks. hund, ulv, klima..."
+                 class="w-full p-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder-gray-400 text-lg">
+        </div>
+        <div>
+          <label class="text-xs text-gray-400 mb-1 block">Naturligt sprog</label>
+          <textarea x-model="natural" @keydown.enter.prevent="doSearch()"
+                    placeholder="f.eks. Vicky og Johan taler om ulve..."
+                    class="w-full p-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder-gray-400 text-lg resize-none"
+                    rows="4"></textarea>
+        </div>
+        <div class="flex justify-center">
+          <button @click="doSearch()" class="px-8 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-medium">Search</button>
+        </div>
+      </div>
+
+      <div id="results" class="space-y-4">
+        <p x-show="searched && !loading && results.length === 0" class="text-center text-gray-400">No results found.</p>
+        <template x-for="r in results" :key="r.episode_id + (r.chunk_index || '')">
+          <a :href="'/episodes/' + r.episode_id + '?q=' + encodeURIComponent(keyword || natural)"
+             class="block p-4 rounded-lg bg-white/10 backdrop-blur hover:bg-white/20 transition border border-white/10">
+            <div class="flex items-start gap-3">
+              <template x-if="r.cover_url">
+                <img :src="r.cover_url" class="w-10 h-10 rounded flex-shrink-0">
+              </template>
+              <div class="flex-1">
+                <div class="flex items-center gap-2">
+                  <div class="text-sm font-semibold" x-text="r.episode_title"></div>
+                  <span class="text-xs px-1.5 py-0.5 rounded"
+                        :class="r.type === 'fts' ? 'bg-blue-700 text-blue-200' : 'bg-emerald-700 text-emerald-200'"
+                        x-text="r.type === 'fts' ? 'Nøgleord' : 'Semantisk'">
+                  </span>
+                </div>
+                <div class="text-xs text-gray-300 mt-1 leading-relaxed" x-html="r.snippet"></div>
+                <div class="text-xs text-gray-500 mt-1">
+                  <span x-text="r.type === 'fts' ? 'Match: ' + keyword : 'Relevans: ' + (r.score || 0).toFixed(2)"></span>
+                </div>
+              </div>
+            </div>
+          </a>
+        </template>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function searchView() {
+      return {
+        portal: { title: {{ portal.title|tojson }}, description: {{ portal.description|tojson }}, background_image: {{ portal.background_image|tojson }}, secondary_image: {{ portal.secondary_image|tojson }} },
+        bgImage: '{{ portal.background_image or "" }}' || '{{ portal.secondary_image or "" }}',
+        hasBg: ('{{ portal.background_image or "" }}' || '{{ portal.secondary_image or "" }}') ? true : false,
+        keyword: '',
+        natural: '',
+        loading: false,
+        searched: false,
+        results: [],
+        async doSearch() {
+          if (!this.keyword.trim() && !this.natural.trim()) return;
+          this.loading = true;
+          this.searched = true;
+          const params = new URLSearchParams();
+          if (this.keyword.trim() && this.natural.trim()) {
+            params.set('q', this.keyword);
+            params.set('nq', this.natural);
+          } else if (this.keyword.trim()) {
+            params.set('q', this.keyword);
+            params.set('mode', 'fts');
+          } else {
+            params.set('q', this.natural);
+            params.set('mode', 'semantic');
+          }
+          try {
+            const r = await fetch('/api/search?' + params);
+            const data = await r.json();
+            this.results = data.results || [];
+          } catch(e) {
+            this.results = [];
+          }
+          this.loading = false;
+        }
+      };
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ portal.title }}</title>
+  <script src="https://unpkg.com/alpinejs@3.14.8" defer></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { margin: 0; min-height: 100vh; }
+    .bg-gradient { background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #0f172a 100%); }
+    .bg-overlay { background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.85)); }
+    mark { background-color: #059669; color: #fff; padding: 0 2px; border-radius: 2px; }
+  </style>
+</head>
+<body class="text-white"
+      x-data="episodeView()" x-init="loadEpisode()"
+      :class="hasBg ? '' : 'bg-gradient'"
+      :style="hasBg ? 'background: url(' + bgImage + ') center/cover fixed no-repeat; background-size: cover; min-height: 100vh;' : ''">
+
+  <div :class="hasBg ? 'bg-overlay' : ''" style="min-height:100vh">
+    <div class="mx-auto max-w-4xl px-4 py-8">
+      <a href="/" class="text-emerald-400 hover:text-emerald-300 text-sm mb-4 inline-block">&larr; Back to search</a>
+
+      <div x-show="!loading">
+        <h1 class="text-2xl font-bold mb-2" x-text="episode.title"></h1>
+        <p class="text-gray-400 text-sm mb-6" x-text="episode.published_at || ''"></p>
+
+        <div x-show="summary" class="mb-6 p-4 rounded-lg bg-white/10 backdrop-blur border border-white/10">
+          <h2 class="text-sm font-semibold text-emerald-400 mb-2">Summary</h2>
+          <div class="text-sm leading-relaxed" x-text="summary"></div>
+        </div>
+
+        <div class="text-sm leading-relaxed whitespace-pre-wrap" x-html="highlightedText"></div>
+      </div>
+      <p x-show="loading" class="text-gray-400 text-center py-12">Loading...</p>
+    </div>
+  </div>
+
+  <script>
+    function episodeView() {
+      return {
+        episodeId: '{{ episode_id }}',
+        bgImage: '{{ portal.background_image or "" }}' || '{{ portal.secondary_image or "" }}',
+        hasBg: ('{{ portal.background_image or "" }}' || '{{ portal.secondary_image or "" }}') ? true : false,
+        loading: true,
+        episode: {},
+        summary: '',
+
+        async loadEpisode() {
+          try {
+            const r = await fetch('/api/episodes/' + this.episodeId);
+            const data = await r.json();
+            this.episode = data;
+            this.summary = data.transcript?.summary || '';
+          } catch(e) {}
+          this.loading = false;
+        },
+
+        get highlightedText() {
+          if (!this.episode?.transcript?.full_text) return '';
+          const params = new URLSearchParams(window.location.search);
+          const highlight = params.get('q');
+          let text = this.episode.transcript.full_text;
+          if (highlight) {
+            text = text.replace(
+              new RegExp('(' + highlight.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi'),
+              '<mark>$1</mark>'
+            );
+          }
+          return text;
+        }
+      };
+    }
+  </script>
+</body>
+</html>

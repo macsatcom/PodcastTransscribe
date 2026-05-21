@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block content %}
+<div x-data="searchView()">
+  <h1 class="text-2xl font-bold mb-6">Search</h1>
+
+  <form @submit.prevent="doSearch()" class="mb-6 space-y-4">
+    <div>
+      <label class="text-xs text-gray-400 mb-1 block">Nøgleord (fuldtekstsøgning)</label>
+      <div class="flex gap-2">
+        <input type="text" x-model="keyword" placeholder="f.eks. hund, ulv, klima..."
+               class="flex-1 p-2 rounded bg-gray-900 border border-gray-700 text-sm"
+               @keyup.enter="doSearch()">
+      </div>
+    </div>
+
+    <div>
+      <label class="text-xs text-gray-400 mb-1 block">Naturligt sprog (semantisk søgning)</label>
+      <textarea x-model="natural" placeholder="f.eks. Vicky og Johan taler om ulve..."
+                class="w-full p-2 rounded bg-gray-900 border border-gray-700 text-sm resize-none"
+                rows="4" @keydown.enter.prevent="doSearch()"></textarea>
+    </div>
+
+    <div class="flex items-center justify-between">
+      <div class="flex flex-wrap gap-4 text-sm">
+        <select x-model="podcastFilter" @change="loadEpisodes()" class="bg-gray-900 border border-gray-700 rounded p-1.5">
+          <option value="">All Podcasts</option>
+          <template x-for="p in podcasts" :key="p.id">
+            <option :value="p.id" x-text="p.title"></option>
+          </template>
+        </select>
+
+        <select x-model="episodeFilter" class="bg-gray-900 border border-gray-700 rounded p-1.5">
+          <option value="">All Episodes</option>
+          <template x-for="e in episodes" :key="e.id">
+            <option :value="e.id" x-text="e.title"></option>
+          </template>
+        </select>
+      </div>
+
+      <button type="submit" class="bg-emerald-600 hover:bg-emerald-500 px-4 py-2 rounded text-sm font-medium">Search</button>
+    </div>
+  </form>
+
+  <div id="search-results" class="space-y-3">
+    <p x-show="searched && !loading && results.length === 0" class="text-gray-500">No results found.</p>
+    <template x-for="r in results" :key="r.episode_id + (r.chunk_index || '')">
+      <a :href="'/episodes/' + r.episode_id + '?q=' + encodeURIComponent(keyword || natural || '')"
+         class="block p-4 bg-gray-900 rounded-lg border border-gray-800 hover:border-emerald-700 transition">
+        <div class="flex items-start gap-3">
+          <template x-if="r.cover_url">
+            <img :src="r.cover_url" class="w-10 h-10 rounded flex-shrink-0">
+          </template>
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-2">
+              <div class="text-xs text-gray-500" x-text="r.podcast_title"></div>
+              <span class="text-xs px-1.5 py-0.5 rounded"
+                    :class="r.type === 'fts' ? 'bg-blue-800 text-blue-200' : 'bg-emerald-800 text-emerald-200'"
+                    x-text="r.type === 'fts' ? 'Nøgleord' : 'Semantisk'">
+              </span>
+            </div>
+            <div class="font-medium truncate" x-text="r.episode_title"></div>
+            <div class="text-sm text-gray-300 mt-1 leading-relaxed line-clamp-3" x-html="r.snippet"></div>
+            <div class="text-xs text-gray-600 mt-1" x-text="r.type === 'fts' ? 'Match: ' + keyword : 'Relevans: ' + (r.score || 0).toFixed(2)"></div>
+          </div>
+        </div>
+      </a>
+    </template>
+  </div>
+</div>
+
+<script>
+function searchView() {
+  return {
+    keyword: '',
+    natural: '',
+    podcastFilter: '',
+    episodeFilter: '',
+    podcasts: [],
+    episodes: [],
+    results: [],
+    loading: false,
+    searched: false,
+
+    async init() {
+      const r = await fetch('/api/podcasts');
+      this.podcasts = await r.json();
+    },
+
+    async loadEpisodes() {
+      if (!this.podcastFilter) { this.episodes = []; return; }
+      const r = await fetch('/api/episodes?podcast_id=' + this.podcastFilter);
+      this.episodes = await r.json();
+    },
+
+    async doSearch() {
+      if (!this.keyword.trim() && !this.natural.trim()) return;
+      this.loading = true;
+      this.searched = true;
+      const params = new URLSearchParams();
+      if (this.keyword.trim() && this.natural.trim()) {
+        params.set('q', this.keyword);
+        params.set('nq', this.natural);
+      } else if (this.keyword.trim()) {
+        params.set('q', this.keyword);
+        params.set('mode', 'fts');
+      } else {
+        params.set('q', this.natural);
+        params.set('mode', 'semantic');
+      }
+      if (this.podcastFilter) params.set('podcast_ids', this.podcastFilter);
+      if (this.episodeFilter) params.set('episode_ids', this.episodeFilter);
+
+      const r = await fetch('/api/search?' + params);
+      const data = await r.json();
+      this.results = data.results || [];
+      this.loading = false;
+    }
+  };
+}
+</script>
+{% endblock %}

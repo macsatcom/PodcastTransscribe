@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block content %}
+<div x-data="dashboard()" x-init="loadPodcasts()">
+  <div class="flex items-center justify-between mb-6">
+    <h1 class="text-2xl font-bold">Podcasts</h1>
+    <button @click="showAdd = true" class="bg-emerald-600 hover:bg-emerald-500 px-4 py-2 rounded text-sm font-medium">+ Add Podcast</button>
+  </div>
+
+  <div x-show="showAdd" x-cloak class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <form class="bg-gray-900 p-6 rounded-lg border border-gray-700 w-full max-w-md" @submit.prevent="addPodcast()">
+      <h2 class="text-lg font-bold mb-4">Add Podcast</h2>
+      <label class="block mb-2 text-sm">Title</label>
+      <input x-model="formTitle" required class="w-full mb-3 p-2 rounded bg-gray-800 border border-gray-700 text-sm">
+      <label class="block mb-2 text-sm">RSS URL</label>
+      <input x-model="formUrl" type="url" required class="w-full mb-3 p-2 rounded bg-gray-800 border border-gray-700 text-sm">
+      <label class="flex items-center gap-2 mb-4 text-sm">
+        <input x-model="formAuto" type="checkbox" checked class="rounded bg-gray-800 border-gray-600">
+        Auto-process episodes
+      </label>
+      <div class="flex justify-end gap-2">
+        <button type="button" @click="showAdd = false" class="px-3 py-1.5 rounded bg-gray-700 text-sm">Cancel</button>
+        <button type="submit" class="px-3 py-1.5 rounded bg-emerald-600 text-sm">Add</button>
+      </div>
+    </form>
+  </div>
+
+  <template x-if="loading">
+    <p class="text-gray-500">Loading...</p>
+  </template>
+
+  <div id="podcast-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    <template x-for="p in podcasts" :key="p.id">
+      <a :href="'/podcasts/' + p.id" class="block p-4 bg-gray-900 rounded-lg border border-gray-800 hover:border-emerald-700 transition">
+        <div class="flex items-center gap-3">
+          <template x-if="p.cover_url">
+            <img :src="p.cover_url" class="w-12 h-12 rounded flex-shrink-0">
+          </template>
+          <div class="min-w-0 flex-1">
+            <div class="font-medium truncate" x-text="p.title"></div>
+            <div class="text-xs text-gray-500" x-text="p.author || ''"></div>
+            <div class="flex items-center gap-3 mt-1">
+              <span class="text-xs text-gray-600" x-text="p.episode_count + ' episodes'"></span>
+              <span x-show="p.latest_episode" class="text-xs text-gray-600" x-text="'Latest: ' + new Date(p.latest_episode).toLocaleDateString()"></span>
+            </div>
+          </div>
+        </div>
+      </a>
+    </template>
+  </div>
+
+  <p x-show="!loading && podcasts.length === 0" class="text-gray-500">No podcasts yet. Add one to get started.</p>
+</div>
+
+<style>[x-cloak] { display: none !important; }</style>
+<script>
+function dashboard() {
+  return {
+    showAdd: false,
+    loading: true,
+    podcasts: [],
+    formTitle: '',
+    formUrl: '',
+    formAuto: true,
+
+    async loadPodcasts() {
+      this.loading = true;
+      const r = await fetch('/api/podcasts');
+      this.podcasts = await r.json();
+      this.loading = false;
+    },
+
+    async addPodcast() {
+      const r = await fetch('/api/podcasts', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          title: this.formTitle,
+          rss_url: this.formUrl,
+          auto_process: this.formAuto,
+        }),
+      });
+      if (r.ok) {
+        this.showAdd = false;
+        this.formTitle = '';
+        this.formUrl = '';
+        this.formAuto = true;
+        await this.loadPodcasts();
+      }
+    }
+  };
+}
+</script>
+{% endblock %}

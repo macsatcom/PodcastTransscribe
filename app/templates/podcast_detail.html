@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+{% block content %}
+<div x-data="podcastDetail()" x-init="loadPodcast()">
+  <a href="/" class="text-emerald-400 hover:text-emerald-300 text-sm mb-4 inline-block">&larr; Back</a>
+
+  <div x-show="loading" class="animate-pulse h-8 w-64 bg-gray-800 rounded mb-6"></div>
+
+  <div x-show="!loading" class="mb-6">
+    <div class="flex items-center gap-4">
+      <template x-if="podcast.cover_url">
+        <img :src="podcast.cover_url" class="w-16 h-16 rounded flex-shrink-0">
+      </template>
+      <div>
+        <h1 class="text-2xl font-bold" x-text="podcast.title"></h1>
+        <p class="text-gray-400 text-sm" x-text="podcast.author || ''"></p>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-4 mt-4">
+      <label class="flex items-center gap-2 text-sm">
+        <input type="checkbox" :checked="podcast.auto_process" @change="toggleAutoProcess()">
+        Auto-process
+      </label>
+      <button @click="pollNow()"
+              class="text-sm text-emerald-400 hover:text-emerald-300"
+              x-text="polling ? 'Polling...' : 'Poll Now'">
+      </button>
+    </div>
+
+    <p x-show="pollResult" x-text="pollResult" class="text-xs text-gray-500 mt-1"></p>
+  </div>
+
+  <div x-show="!loadingEpisodes" class="mb-4 space-y-3">
+    <input type="text" x-model="filterText" placeholder="Search episodes..."
+           class="w-full p-2 rounded bg-gray-800 border border-gray-700 text-sm">
+
+    <div class="flex items-center gap-3">
+      <button @click="processAll()" x-text="processingAll ? 'Processing...' : 'Process All Pending'"
+              class="bg-emerald-700 hover:bg-emerald-600 px-3 py-1.5 rounded text-xs font-medium disabled:opacity-50"
+              :disabled="processingAll">
+      </button>
+      <span x-text="filteredEpisodes.length + ' of ' + episodes.length + ' episodes'" class="text-xs text-gray-500"></span>
+      <span x-show="processAllResult" x-text="processAllResult" class="text-xs text-gray-500"></span>
+    </div>
+  </div>
+
+  <div class="space-y-2">
+    <template x-if="loadingEpisodes">
+      <p class="text-gray-500">Loading episodes...</p>
+    </template>
+    <template x-for="ep in filteredEpisodes" :key="ep.id">
+      <div class="flex items-start justify-between p-3 bg-gray-900 rounded-lg border border-gray-800 hover:border-emerald-700 transition gap-3">
+        <a :href="'/episodes/' + ep.id" class="min-w-0 flex-1">
+          <div class="text-sm font-medium truncate" x-text="ep.title"></div>
+          <div class="text-xs text-gray-500" x-text="ep.published_at || ''"></div>
+          <div x-show="ep.description" class="text-xs text-gray-400 mt-1 line-clamp-2" x-text="ep.description"></div>
+        </a>
+        <div class="flex items-center gap-2 flex-shrink-0">
+          <span class="text-xs px-2 py-0.5 rounded"
+                :class="{
+                  'bg-gray-700 text-gray-300': ep.status === 'new',
+                  'bg-blue-700 text-blue-200': ['downloading','transcribing','summarizing','indexing','processing'].includes(ep.status),
+                  'bg-emerald-700 text-emerald-200': ep.status === 'ready',
+                  'bg-red-700 text-red-200': ep.status === 'error',
+                }"
+                x-text="ep.status">
+          </span>
+          <button x-show="ep.status === 'new' || ep.status === 'error'"
+                  @click="processEpisode(ep)"
+                  x-text="ep.processing ? '...' : 'Process'"
+                  :disabled="ep.processing"
+                  class="text-xs text-emerald-400 hover:text-emerald-300 disabled:text-gray-600">
+          </button>
+        </div>
+      </div>
+    </template>
+    <p x-show="!loadingEpisodes && filteredEpisodes.length === 0" class="text-gray-500">No episodes match your search.</p>
+  </div>
+</div>
+
+<script>
+function podcastDetail() {
+  return {
+    podcastId: '{{ podcast_id }}',
+    loading: true,
+    loadingEpisodes: true,
+    podcast: {},
+    episodes: [],
+    polling: false,
+    pollResult: '',
+    processingAll: false,
+    processAllResult: '',
+    filterText: '',
+
+    get filteredEpisodes() {
+      if (!this.filterText) return this.episodes;
+      const q = this.filterText.toLowerCase();
+      return this.episodes.filter(e =>
+        (e.title && e.title.toLowerCase().includes(q)) ||
+        (e.description && e.description.toLowerCase().includes(q))
+      );
+    },
+
+    async loadPodcast() {
+      const r = await fetch('/api/podcasts/' + this.podcastId);
+      this.podcast = await r.json();
+      this.loading = false;
+      await this.loadEpisodes();
+    },
+
+    async loadEpisodes() {
+      this.loadingEpisodes = true;
+      const r = await fetch('/api/episodes?podcast_id=' + this.podcastId);
+      this.episodes = await r.json();
+      this.loadingEpisodes = false;
+    },
+
+    async toggleAutoProcess() {
+      await fetch('/api/podcasts/' + this.podcastId, {
+        method: 'PATCH',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({auto_process: !this.podcast.auto_process}),
+      });
+      this.podcast.auto_process = !this.podcast.auto_process;
+    },
+
+    async pollNow() {
+      this.polling = true;
+      this.pollResult = '';
+      const r = await fetch('/api/podcasts/' + this.podcastId + '/poll', { method: 'POST' });
+      if (r.ok) {
+        this.pollResult = 'Polled! New episodes will appear shortly.';
+        await this.loadEpisodes();
+      } else {
+        this.pollResult = 'Poll failed.';
+      }
+      this.polling = false;
+      setTimeout(() => this.pollResult = '', 3000);
+    },
+
+    async processEpisode(ep) {
+      ep.processing = true;
+      await fetch('/api/episodes/' + ep.id + '/process', { method: 'POST' });
+      ep.status = 'processing';
+      // Poll until done
+      const poll = setInterval(async () => {
+        const r = await fetch('/api/episodes/' + ep.id);
+        const data = await r.json();
+        ep.status = data.status;
+        ep.error_message = data.error_message;
+        if (data.status !== 'processing' && data.status !== 'downloading' && data.status !== 'transcribing' && data.status !== 'summarizing' && data.status !== 'indexing') {
+          clearInterval(poll);
+          ep.processing = false;
+        }
+      }, 2000);
+    },
+
+    async processAll() {
+      this.processingAll = true;
+      this.processAllResult = '';
+      const pending = this.episodes.filter(e => e.status === 'new' || e.status === 'error');
+      for (const ep of pending) {
+        await this.processEpisode(ep);
+      }
+      this.processAllResult = `Started processing ${pending.length} episode(s).`;
+      this.processingAll = false;
+      setTimeout(() => this.processAllResult = '', 4000);
+    }
+  };
+}
+</script>
+{% endblock %}

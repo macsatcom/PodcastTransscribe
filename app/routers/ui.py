@@ -1,0 +1,36 @@
+from fastapi import APIRouter, Request
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
+from pathlib import Path
+
+router = APIRouter(tags=["ui"])
+templates = Jinja2Templates(directory=Path(__file__).parent.parent / "templates")
+
+
+@router.get("/", response_class=HTMLResponse)
+async def dashboard(request: Request):
+    return templates.TemplateResponse(request, "dashboard.html")
+
+
+@router.get("/podcasts/{podcast_id}", response_class=HTMLResponse)
+async def podcast_detail(request: Request, podcast_id: str):
+    return templates.TemplateResponse(
+        request, "podcast_detail.html", context={"podcast_id": podcast_id},
+    )
+
+
+@router.get("/episodes/{episode_id}", response_class=HTMLResponse)
+async def episode_view(request: Request, episode_id: str):
+    return templates.TemplateResponse(
+        request, "episode.html", context={"episode_id": episode_id},
+    )
+
+
+@router.get("/search", response_class=HTMLResponse)
+async def search_page(request: Request):
+    return templates.TemplateResponse(request, "search.html")
+
+
+@router.get("/admin", response_class=HTMLResponse)
+async def admin_page(request: Request):
+    return templates.TemplateResponse(request, "admin.html")
