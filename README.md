@@ -73,7 +73,7 @@ For offline transcription without OpenRouter, you can run a local Whisper servic
 docker compose --profile whisper up -d
 ```
 
-This starts a Whisper ASR service using `onerahmet/openai-whisper-asr-webservice` with the `large-v3` model. First start downloads ~3GB model. Then select `local-whisper` in Admin → Transcription Model.
+This starts a Whisper ASR service on port 9050 using `onerahmet/openai-whisper-asr-webservice` with the `large-v3` model. First start downloads ~3GB model. Then select `local-whisper` in Admin → Transcription Model.
 
 ### AMD ROCm GPU
 
