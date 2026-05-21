@@ -34,9 +34,30 @@
     <input type="text" x-model="filterText" placeholder="Search episodes..."
            class="w-full p-2 rounded bg-gray-800 border border-gray-700 text-sm">
 
+    <div class="flex flex-wrap gap-1.5">
+      <button @click="statusFilter = ''" class="text-xs px-2.5 py-1 rounded"
+              :class="statusFilter === '' ? 'bg-emerald-700 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'">All</button>
+      <button @click="statusFilter = 'new'" class="text-xs px-2.5 py-1 rounded"
+              :class="statusFilter === 'new' ? 'bg-emerald-700 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'">New</button>
+      <button @click="statusFilter = 'processing'" class="text-xs px-2.5 py-1 rounded"
+              :class="statusFilter === 'processing' ? 'bg-emerald-700 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'">Processing</button>
+      <button @click="statusFilter = 'ready'" class="text-xs px-2.5 py-1 rounded"
+              :class="statusFilter === 'ready' ? 'bg-emerald-700 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'">Ready</button>
+      <button @click="statusFilter = 'error'" class="text-xs px-2.5 py-1 rounded"
+              :class="statusFilter === 'error' ? 'bg-emerald-700 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'">Error</button>
+    </div>
+
     <div class="flex items-center gap-3">
+      <label class="flex items-center gap-1.5 text-xs text-gray-500">
+        <input type="checkbox" @change="selectAll = !selectAll; toggleSelectAll()">
+        Select all
+      </label>
+      <button @click="processSelected()" x-show="selectedIds.length > 0"
+              class="bg-emerald-700 hover:bg-emerald-600 px-3 py-1.5 rounded text-xs font-medium"
+              x-text="'Process Selected (' + selectedIds.length + ')'">
+      </button>
       <button @click="processAll()" x-text="processingAll ? 'Processing...' : 'Process All Pending'"
-              class="bg-emerald-700 hover:bg-emerald-600 px-3 py-1.5 rounded text-xs font-medium disabled:opacity-50"
+              class="bg-emerald-800 hover:bg-emerald-700 px-3 py-1.5 rounded text-xs font-medium disabled:opacity-50"
               :disabled="processingAll">
       </button>
       <span x-text="filteredEpisodes.length + ' of ' + episodes.length + ' episodes'" class="text-xs text-gray-500"></span>
@@ -50,11 +71,15 @@
     </template>
     <template x-for="ep in filteredEpisodes" :key="ep.id">
       <div class="flex items-start justify-between p-3 bg-gray-900 rounded-lg border border-gray-800 hover:border-emerald-700 transition gap-3">
-        <a :href="'/episodes/' + ep.id" class="min-w-0 flex-1">
-          <div class="text-sm font-medium truncate" x-text="ep.title"></div>
-          <div class="text-xs text-gray-500" x-text="ep.published_at || ''"></div>
-          <div x-show="ep.description" class="text-xs text-gray-400 mt-1 line-clamp-2" x-text="ep.description"></div>
-        </a>
+        <div class="flex items-start gap-2 min-w-0 flex-1">
+          <input type="checkbox" :checked="selectedIds.includes(ep.id)" @change="toggleSelect(ep.id)"
+                 class="mt-1 rounded bg-gray-800 border-gray-600 flex-shrink-0">
+          <a :href="'/episodes/' + ep.id" class="min-w-0 flex-1">
+            <div class="text-sm font-medium truncate" x-text="ep.title"></div>
+            <div class="text-xs text-gray-500" x-text="ep.published_at || ''"></div>
+            <div x-show="ep.description" class="text-xs text-gray-400 mt-1 line-clamp-2" x-text="ep.description"></div>
+          </a>
+        </div>
         <div class="flex items-center gap-2 flex-shrink-0">
           <span class="text-xs px-2 py-0.5 rounded"
                 :class="{
@@ -74,7 +99,7 @@
         </div>
       </div>
     </template>
-    <p x-show="!loadingEpisodes && filteredEpisodes.length === 0" class="text-gray-500">No episodes match your search.</p>
+    <p x-show="!loadingEpisodes && filteredEpisodes.length === 0" class="text-gray-500">No episodes match your filter.</p>
   </div>
 </div>
 
@@ -91,14 +116,40 @@ function podcastDetail() {
     processingAll: false,
     processAllResult: '',
     filterText: '',
+    statusFilter: '',
+    selectedIds: [],
+    selectAll: false,
 
     get filteredEpisodes() {
-      if (!this.filterText) return this.episodes;
-      const q = this.filterText.toLowerCase();
-      return this.episodes.filter(e =>
-        (e.title && e.title.toLowerCase().includes(q)) ||
-        (e.description && e.description.toLowerCase().includes(q))
-      );
+      let list = this.episodes;
+      if (this.filterText) {
+        const q = this.filterText.toLowerCase();
+        list = list.filter(e =>
+          (e.title && e.title.toLowerCase().includes(q)) ||
+          (e.description && e.description.toLowerCase().includes(q))
+        );
+      }
+      if (this.statusFilter) {
+        list = list.filter(e => {
+          if (this.statusFilter === 'processing') return ['downloading','transcribing','summarizing','indexing','processing'].includes(e.status);
+          return e.status === this.statusFilter;
+        });
+      }
+      return list;
+    },
+
+    toggleSelect(id) {
+      const idx = this.selectedIds.indexOf(id);
+      if (idx > -1) this.selectedIds.splice(idx, 1);
+      else this.selectedIds.push(id);
+    },
+
+    toggleSelectAll() {
+      if (this.selectAll) {
+        this.selectedIds = this.filteredEpisodes.map(e => e.id);
+      } else {
+        this.selectedIds = [];
+      }
     },
 
     async loadPodcast() {
@@ -142,7 +193,6 @@ function podcastDetail() {
       ep.processing = true;
       await fetch('/api/episodes/' + ep.id + '/process', { method: 'POST' });
       ep.status = 'processing';
-      // Poll until done
       const poll = setInterval(async () => {
         const r = await fetch('/api/episodes/' + ep.id);
         const data = await r.json();
@@ -153,6 +203,16 @@ function podcastDetail() {
           ep.processing = false;
         }
       }, 2000);
+    },
+
+    async processSelected() {
+      for (const id of this.selectedIds) {
+        const ep = this.episodes.find(e => e.id === id);
+        if (ep && (ep.status === 'new' || ep.status === 'error')) {
+          await this.processEpisode(ep);
+        }
+      }
+      this.selectedIds = [];
     },
 
     async processAll() {
