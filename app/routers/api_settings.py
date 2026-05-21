@@ -13,7 +13,7 @@ VALID_KEYS = {
     "chat_audio_model",
     "summarization_model",
     "embedding_model",
-    "jetson_whisper_url",
+    "self_hosted_whisper_url",
 }
 
 
@@ -74,7 +74,7 @@ async def list_models(db: AsyncSession = Depends(get_db)):
     defaults = {
         "transcription": [
             "local-whisper",
-            "jetson-whisper",
+            "self-hosted-whisper",
             "openai/whisper-1",
             "openai/whisper-large-v3",
             "openai/whisper-large-v3-turbo",

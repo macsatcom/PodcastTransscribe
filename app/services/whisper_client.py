@@ -19,7 +19,7 @@ async def transcribe_local(audio_data: bytes, language: str | None = None) -> tu
         return result.get("text", ""), result.get("segments")
 
 
-async def transcribe_jetson(audio_data: bytes, jetson_url: str, language: str | None = None) -> tuple[str, list | None]:
+async def transcribe_self_hosted(audio_data: bytes, whisper_url: str, language: str | None = None) -> tuple[str, list | None]:
     files = {"audio_file": ("audio.mp3", audio_data, "audio/mpeg")}
     params = {"response_format": "json"}
     if language:
@@ -27,7 +27,7 @@ async def transcribe_jetson(audio_data: bytes, jetson_url: str, language: str | 
 
     async with httpx.AsyncClient(timeout=600) as client:
         response = await client.post(
-            f"{jetson_url}/asr",
+            f"{whisper_url}/asr",
             data={"task": "transcribe", **params},
             files=files,
         )

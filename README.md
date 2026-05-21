@@ -83,9 +83,9 @@ docker compose --profile whisper-rocm up -d
 
 Uses `jjajjara/rocm-whisper-api` for AMD GPU acceleration.
 
-### Jetson Orin Nano (remote)
+### Self-hosted Whisper (remote)
 
-Run whisper.cpp server on your Jetson, then set your Jetson's URL in Admin → Jetson Whisper URL and select `jetson-whisper` as Transcription Model.
+Run a Whisper server on any machine (e.g. Jetson, separate server). Set the URL in Admin → Self-hosted Whisper URL and select `self-hosted-whisper` as Transcription Model.
 
 ### Model sizes
 

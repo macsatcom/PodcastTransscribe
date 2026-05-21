@@ -48,8 +48,8 @@
             </template>
           </select>
 
-          <label class="block text-sm mb-1 mt-3">Jetson Whisper URL (hvis du bruger jetson-whisper)</label>
-          <input type="text" x-model="jetsonUrl" placeholder="http://192.168.1.100:9000"
+          <label class="block text-sm mb-1 mt-3">Self-hosted Whisper URL (hvis du bruger self-hosted-whisper)</label>
+          <input type="text" x-model="selfHostedUrl" placeholder="http://192.168.1.100:9000"
                  class="w-full p-2 rounded bg-gray-800 border border-gray-700 text-sm mb-3">
 
           <button @click="saveModels()" class="bg-emerald-600 hover:bg-emerald-500 px-4 py-2 rounded text-sm font-medium">Save Model Choices</button>
@@ -203,7 +203,7 @@ function adminView() {
       chatAudioModel: '',
       summarizationModel: '',
       embeddingModel: '',
-      jetsonUrl: '',
+      selfHostedUrl: '',
       saveStatus: '',
     modelSaveStatus: '',
     saving: false,
@@ -220,7 +220,7 @@ function adminView() {
       this.chatAudioModel = data.chat_audio_model || '';
       this.summarizationModel = data.summarization_model || '';
       this.embeddingModel = data.embedding_model || '';
-      this.jetsonUrl = data.jetson_whisper_url || '';
+      this.selfHostedUrl = data.self_hosted_whisper_url || '';
       if (this.apiKey) await this.fetchModels();
     },
 
@@ -230,7 +230,7 @@ function adminView() {
       this.loadError = '';
       const body = {};
       if (this.apiKey) body.openrouter_api_key = this.apiKey;
-      if (this.jetsonUrl) body.jetson_whisper_url = this.jetsonUrl;
+      if (this.selfHostedUrl) body.self_hosted_whisper_url = this.selfHostedUrl;
 
       const r = await fetch('/api/settings', {
         method: 'PUT',
