@@ -268,6 +268,7 @@ function adminView() {
       if (this.transcriptionModel) body.transcription_model = this.transcriptionModel;
       if (this.summarizationModel) body.summarization_model = this.summarizationModel;
       if (this.embeddingModel) body.embedding_model = this.embeddingModel;
+      if (this.selfHostedUrl) body.self_hosted_whisper_url = this.selfHostedUrl;
 
       const r = await fetch('/api/settings', {
         method: 'PUT',
