@@ -38,7 +38,7 @@ services:
     volumes:
       - whisper_models:/root/.cache/whisper
     environment:
-      - ASR_MODEL=small
+      - ASR_MODEL=large-v3
       - ASR_ENGINE=faster_whisper
     deploy:
       resources:
