@@ -2,7 +2,7 @@ services:
   db:
     image: pgvector/pgvector:pg16
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - ${DATA_DIR:-./data}/postgres:/var/lib/postgresql/data
     environment:
       POSTGRES_DB: podcast_transcription_search
       POSTGRES_USER: podcast
@@ -18,8 +18,8 @@ services:
       - "0.0.0.0:8002:8000"
       - "0.0.0.0:9000-9010:9000-9010"
     volumes:
-      - audio_cache:/tmp/audio
-      - portal_images:/app/portal_images
+      - ${DATA_DIR:-./data}/audio_cache:/tmp/audio
+      - ${DATA_DIR:-./data}/portal_images:/app/portal_images
     depends_on:
       db:
         condition: service_healthy
@@ -36,7 +36,7 @@ services:
     ports:
       - "0.0.0.0:9050:9000"
     volumes:
-      - whisper_models:/root/.cache/whisper
+      - ${DATA_DIR:-./data}/whisper_models:/root/.cache/whisper
     environment:
       - ASR_MODEL=large-v3
       - ASR_ENGINE=faster_whisper
@@ -53,7 +53,7 @@ services:
     ports:
       - "0.0.0.0:9001:9000"
     volumes:
-      - whisper_models:/root/.cache/whisper
+      - ${DATA_DIR:-./data}/whisper_models:/root/.cache/whisper
     environment:
       - ASR_MODEL=large-v3
     devices:
@@ -65,8 +65,3 @@ services:
           memory: 6G
     restart: unless-stopped
 
-volumes:
-  pgdata:
-  audio_cache:
-  portal_images:
-  whisper_models:
