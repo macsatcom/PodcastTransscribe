@@ -99,19 +99,39 @@ async def get_podcast(podcast_id: UUID, db: AsyncSession = Depends(get_db)):
     }
 
 
+class UpdatePodcastRequest(BaseModel):
+    title: str | None = None
+    author: str | None = None
+    description: str | None = None
+    cover_url: str | None = None
+    language: str | None = None
+    auto_process: bool | None = None
+
+
 @router.patch("/{podcast_id}")
 async def update_podcast(
     podcast_id: UUID,
-    auto_process: bool | None = None,
+    body: UpdatePodcastRequest,
     db: AsyncSession = Depends(get_db),
 ):
     podcast = await db.get(Podcast, podcast_id)
     if not podcast:
         return {"error": "not found"}
-    if auto_process is not None:
-        podcast.auto_process = auto_process
+    for field in ("title", "author", "description", "cover_url", "language", "auto_process"):
+        val = getattr(body, field, None)
+        if val is not None:
+            setattr(podcast, field, val)
     await db.commit()
-    return {"id": str(podcast.id), "auto_process": podcast.auto_process}
+    await db.refresh(podcast)
+    return {
+        "id": str(podcast.id),
+        "title": podcast.title,
+        "author": podcast.author,
+        "description": podcast.description,
+        "cover_url": podcast.cover_url,
+        "language": podcast.language,
+        "auto_process": podcast.auto_process,
+    }
 
 
 @router.post("/{podcast_id}/poll")

@@ -6,13 +6,20 @@
   <div x-show="loading" class="animate-pulse h-8 w-64 bg-gray-800 rounded mb-6"></div>
 
   <div x-show="!loading" class="mb-6">
-    <div class="flex items-center gap-4">
-      <template x-if="podcast.cover_url">
-        <img :src="podcast.cover_url" class="w-16 h-16 rounded flex-shrink-0">
-      </template>
-      <div>
-        <h1 class="text-2xl font-bold" x-text="podcast.title"></h1>
-        <p class="text-gray-400 text-sm" x-text="podcast.author || ''"></p>
+    <div class="flex items-start justify-between">
+      <div class="flex items-center gap-4">
+        <template x-if="podcast.cover_url">
+          <img :src="podcast.cover_url" class="w-16 h-16 rounded flex-shrink-0">
+        </template>
+        <div>
+          <h1 class="text-2xl font-bold" x-text="podcast.title"></h1>
+          <p class="text-gray-400 text-sm" x-text="podcast.author || ''"></p>
+          <p x-show="podcast.description" class="text-gray-500 text-xs mt-1 line-clamp-2" x-text="podcast.description"></p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 flex-shrink-0">
+        <button @click="showEdit = true" class="text-xs text-gray-400 hover:text-white px-2 py-1 rounded bg-gray-800 hover:bg-gray-700">Edit</button>
+        <button @click="confirmDelete()" class="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded bg-gray-800 hover:bg-gray-700">Delete</button>
       </div>
     </div>
 
@@ -28,6 +35,37 @@
     </div>
 
     <p x-show="pollResult" x-text="pollResult" class="text-xs text-gray-500 mt-1"></p>
+  </div>
+
+  <div x-show="showEdit" x-cloak class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <form class="bg-gray-900 p-6 rounded-lg border border-gray-700 w-full max-w-md" @submit.prevent="saveEdit()">
+      <h2 class="text-lg font-bold mb-4">Edit Podcast</h2>
+      <label class="block mb-2 text-sm">Title</label>
+      <input x-model="editTitle" required class="w-full mb-3 p-2 rounded bg-gray-800 border border-gray-700 text-sm">
+      <label class="block mb-2 text-sm">Author</label>
+      <input x-model="editAuthor" class="w-full mb-3 p-2 rounded bg-gray-800 border border-gray-700 text-sm">
+      <label class="block mb-2 text-sm">Description</label>
+      <textarea x-model="editDescription" rows="3" class="w-full mb-3 p-2 rounded bg-gray-800 border border-gray-700 text-sm"></textarea>
+      <label class="block mb-2 text-sm">Cover URL</label>
+      <input x-model="editCoverUrl" class="w-full mb-3 p-2 rounded bg-gray-800 border border-gray-700 text-sm">
+      <label class="block mb-2 text-sm">Language</label>
+      <input x-model="editLanguage" placeholder="e.g. en" class="w-full mb-4 p-2 rounded bg-gray-800 border border-gray-700 text-sm">
+      <div class="flex justify-end gap-2">
+        <button type="button" @click="showEdit = false" class="px-3 py-1.5 rounded bg-gray-700 text-sm">Cancel</button>
+        <button type="submit" class="px-3 py-1.5 rounded bg-emerald-600 text-sm" x-text="saving ? 'Saving...' : 'Save'"></button>
+      </div>
+    </form>
+  </div>
+
+  <div x-show="deleteTarget" x-cloak class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div class="bg-gray-900 p-6 rounded-lg border border-gray-700 w-full max-w-sm">
+      <h2 class="text-lg font-bold mb-2">Delete Podcast?</h2>
+      <p class="text-sm text-gray-400 mb-4">This will permanently delete this podcast and all its episodes.</p>
+      <div class="flex justify-end gap-2">
+        <button @click="deleteTarget = false" class="px-3 py-1.5 rounded bg-gray-700 text-sm">Cancel</button>
+        <button @click="deletePodcast()" class="px-3 py-1.5 rounded bg-red-700 text-sm" x-text="deleting ? 'Deleting...' : 'Delete'"></button>
+      </div>
+    </div>
   </div>
 
   <div x-show="!loadingEpisodes" class="mb-4 space-y-3">
@@ -120,6 +158,15 @@ function podcastDetail() {
     statusFilter: '',
     selectedIds: [],
     selectAll: false,
+    showEdit: false,
+    editTitle: '',
+    editAuthor: '',
+    editDescription: '',
+    editCoverUrl: '',
+    editLanguage: '',
+    saving: false,
+    deleteTarget: false,
+    deleting: false,
 
     get filteredEpisodes() {
       let list = this.episodes;
@@ -156,6 +203,11 @@ function podcastDetail() {
     async loadPodcast() {
       const r = await fetch('/api/podcasts/' + this.podcastId);
       this.podcast = await r.json();
+      this.editTitle = this.podcast.title || '';
+      this.editAuthor = this.podcast.author || '';
+      this.editDescription = this.podcast.description || '';
+      this.editCoverUrl = this.podcast.cover_url || '';
+      this.editLanguage = this.podcast.language || '';
       this.loading = false;
       await this.loadEpisodes();
     },
@@ -188,6 +240,38 @@ function podcastDetail() {
       }
       this.polling = false;
       setTimeout(() => this.pollResult = '', 3000);
+    },
+
+    async saveEdit() {
+      this.saving = true;
+      const r = await fetch('/api/podcasts/' + this.podcastId, {
+        method: 'PATCH',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          title: this.editTitle,
+          author: this.editAuthor,
+          description: this.editDescription,
+          cover_url: this.editCoverUrl,
+          language: this.editLanguage,
+        }),
+      });
+      if (r.ok) {
+        const updated = await r.json();
+        Object.assign(this.podcast, updated);
+      }
+      this.showEdit = false;
+      this.saving = false;
+    },
+
+    confirmDelete() {
+      this.deleteTarget = true;
+    },
+
+    async deletePodcast() {
+      this.deleting = true;
+      const r = await fetch('/api/podcasts/' + this.podcastId, { method: 'DELETE' });
+      if (r.ok) window.location.href = '/';
+      this.deleting = false;
     },
 
     async processEpisode(ep) {

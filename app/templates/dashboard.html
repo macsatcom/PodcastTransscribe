@@ -30,25 +30,39 @@
 
   <div id="podcast-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
     <template x-for="p in podcasts" :key="p.id">
-      <a :href="'/podcasts/' + p.id" class="block p-4 bg-gray-900 rounded-lg border border-gray-800 hover:border-emerald-700 transition">
-        <div class="flex items-center gap-3">
-          <template x-if="p.cover_url">
-            <img :src="p.cover_url" class="w-12 h-12 rounded flex-shrink-0">
-          </template>
-          <div class="min-w-0 flex-1">
-            <div class="font-medium truncate" x-text="p.title"></div>
-            <div class="text-xs text-gray-500" x-text="p.author || ''"></div>
-            <div class="flex items-center gap-3 mt-1">
-              <span class="text-xs text-gray-600" x-text="p.episode_count + ' episodes'"></span>
-              <span x-show="p.latest_episode" class="text-xs text-gray-600" x-text="'Latest: ' + new Date(p.latest_episode).toLocaleDateString()"></span>
+      <div class="block p-4 bg-gray-900 rounded-lg border border-gray-800 hover:border-emerald-700 transition group relative">
+        <a :href="'/podcasts/' + p.id" class="block">
+          <div class="flex items-center gap-3">
+            <template x-if="p.cover_url">
+              <img :src="p.cover_url" class="w-12 h-12 rounded flex-shrink-0">
+            </template>
+            <div class="min-w-0 flex-1">
+              <div class="font-medium truncate" x-text="p.title"></div>
+              <div class="text-xs text-gray-500" x-text="p.author || ''"></div>
+              <div class="flex items-center gap-3 mt-1">
+                <span class="text-xs text-gray-600" x-text="p.episode_count + ' episodes'"></span>
+                <span x-show="p.latest_episode" class="text-xs text-gray-600" x-text="'Latest: ' + new Date(p.latest_episode).toLocaleDateString()"></span>
+              </div>
             </div>
           </div>
-        </div>
-      </a>
+        </a>
+        <button @click="confirmDelete(p)" class="absolute top-2 right-2 text-gray-600 hover:text-red-400 text-xs opacity-0 group-hover:opacity-100 transition">&times;</button>
+      </div>
     </template>
   </div>
 
   <p x-show="!loading && podcasts.length === 0" class="text-gray-500">No podcasts yet. Add one to get started.</p>
+
+  <div x-show="deleteTarget" x-cloak class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div class="bg-gray-900 p-6 rounded-lg border border-gray-700 w-full max-w-sm">
+      <h2 class="text-lg font-bold mb-2">Delete Podcast?</h2>
+      <p class="text-sm text-gray-400 mb-4" x-text="'This will permanently delete &quot;' + (deleteTarget?.title || '') + '&quot; and all its episodes.'"></p>
+      <div class="flex justify-end gap-2">
+        <button @click="deleteTarget = null" class="px-3 py-1.5 rounded bg-gray-700 text-sm">Cancel</button>
+        <button @click="deletePodcast()" class="px-3 py-1.5 rounded bg-red-700 text-sm" x-text="deleting ? 'Deleting...' : 'Delete'"></button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <style>[x-cloak] { display: none !important; }</style>
@@ -61,6 +75,23 @@ function dashboard() {
     formTitle: '',
     formUrl: '',
     formAuto: true,
+    deleteTarget: null,
+    deleting: false,
+
+    confirmDelete(p) {
+      this.deleteTarget = p;
+    },
+
+    async deletePodcast() {
+      if (!this.deleteTarget) return;
+      this.deleting = true;
+      const r = await fetch('/api/podcasts/' + this.deleteTarget.id, { method: 'DELETE' });
+      if (r.ok) {
+        this.podcasts = this.podcasts.filter(p => p.id !== this.deleteTarget.id);
+      }
+      this.deleteTarget = null;
+      this.deleting = false;
+    },
 
     async loadPodcasts() {
       this.loading = true;
