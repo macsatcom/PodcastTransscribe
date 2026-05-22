@@ -1,4 +1,4 @@
-# PodcastTransscribe — System Design
+# Podcast Transcription and Search — System Design
 
 ## Overview
 
@@ -281,13 +281,13 @@ services:
     volumes: ["audio_cache:/tmp/audio"]
     depends_on: [db]
     environment:
-      DATABASE_URL: postgresql+asyncpg://podcast:podcast@db/podcast_transcribe
+      DATABASE_URL: postgresql+asyncpg://podcast:podcast@db/podcast_transcription_search
 
   db:
     image: pgvector/pgvector:pg16
     volumes: ["pgdata:/var/lib/postgresql/data"]
     environment:
-      POSTGRES_DB: podcast_transcribe
+      POSTGRES_DB: podcast_transcription_search
       POSTGRES_USER: podcast
       POSTGRES_PASSWORD: podcast
 ```

@@ -40,7 +40,7 @@ async def lifespan(app: FastAPI):
     await engine.dispose()
 
 
-app = FastAPI(title="PodcastTransscribe", lifespan=lifespan)
+app = FastAPI(title="Podcast Transcription and Search", lifespan=lifespan)
 
 from app.routers import api_podcasts, api_episodes, api_search, api_settings, ui, api_portals
 

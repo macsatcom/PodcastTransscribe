@@ -1,4 +1,4 @@
-# PodcastTransscribe Implementation Plan
+# Podcast Transcription and Search Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -13,7 +13,7 @@
 ## File Structure
 
 ```
-PodcastTransscribe/
+podcast-transcription-search/
 ├── docker-compose.yml
 ├── Dockerfile
 ├── pyproject.toml
@@ -96,7 +96,7 @@ PodcastTransscribe/
 
 ```toml
 [project]
-name = "podcast-transcribe"
+name = "podcast-transcription-search"
 version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
@@ -146,11 +146,11 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     environment:
-      POSTGRES_DB: podcast_transcribe
+      POSTGRES_DB: podcast_transcription_search
       POSTGRES_USER: podcast
       POSTGRES_PASSWORD: podcast
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U podcast -d podcast_transcribe"]
+      test: ["CMD-SHELL", "pg_isready -U podcast -d podcast_transcription_search"]
       interval: 5s
       retries: 10
 
@@ -164,7 +164,7 @@ services:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql+asyncpg://podcast:podcast@db/podcast_transcribe
+      DATABASE_URL: postgresql+asyncpg://podcast:podcast@db/podcast_transcription_search
       OPENROUTER_API_KEY: "${OPENROUTER_API_KEY}"
 
 volumes:
@@ -179,7 +179,7 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    database_url: str = "postgresql+asyncpg://podcast:podcast@localhost/podcast_transcribe"
+    database_url: str = "postgresql+asyncpg://podcast:podcast@localhost/podcast_transcription_search"
     openrouter_api_key: str = ""
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
     audio_temp_dir: str = "/tmp/audio"
@@ -231,7 +231,7 @@ async def lifespan(app: FastAPI):
     await engine.dispose()
 
 
-app = FastAPI(title="PodcastTransscribe", lifespan=lifespan)
+app = FastAPI(title="Podcast Transcription and Search", lifespan=lifespan)
 ```
 
 - [ ] **Step 7: Create alembic.ini**
@@ -239,7 +239,7 @@ app = FastAPI(title="PodcastTransscribe", lifespan=lifespan)
 ```ini
 [alembic]
 script_location = alembic
-sqlalchemy.url = postgresql+asyncpg://podcast:podcast@localhost/podcast_transcribe
+sqlalchemy.url = postgresql+asyncpg://podcast:podcast@localhost/podcast_transcription_search
 
 [loggers]
 keys = root,sqlalchemy,alembic
@@ -650,7 +650,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from app.database import Base, get_db
 from app.main import app
 
-TEST_DATABASE_URL = "postgresql+asyncpg://podcast:podcast@localhost/podcast_transcribe_test"
+TEST_DATABASE_URL = "postgresql+asyncpg://podcast:podcast@localhost/podcast_transcription_search_test"
 
 
 @pytest.fixture(scope="session")
@@ -1848,7 +1848,7 @@ async def lifespan(app: FastAPI):
     await engine.dispose()
 
 
-app = FastAPI(title="PodcastTransscribe", lifespan=lifespan)
+app = FastAPI(title="Podcast Transcription and Search", lifespan=lifespan)
 ```
 
 ---
@@ -1909,14 +1909,14 @@ async def admin_page(request: Request):
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PodcastTransscribe</title>
+  <title>Podcast Transcription and Search</title>
   <script src="https://unpkg.com/htmx.org@2.0.4"></script>
   <script src="https://unpkg.com/alpinejs@3.14.8" defer></script>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="h-full text-gray-100">
   <nav class="border-b border-gray-800 bg-gray-900 px-6 py-3 flex items-center gap-6">
-    <a href="/" class="text-lg font-bold text-emerald-400">PodcastTransscribe</a>
+    <a href="/" class="text-lg font-bold text-emerald-400">Podcast Transcription and Search</a>
     <a href="/" class="hover:text-emerald-300 text-sm">Dashboard</a>
     <a href="/search" class="hover:text-emerald-300 text-sm">Search</a>
     <a href="/admin" class="hover:text-emerald-300 text-sm">Admin</a>
@@ -2318,7 +2318,7 @@ Expected: Both containers running, app accessible at http://localhost:8000
 - [ ] **Step 4: Verify health endpoint**
 
 Run: `curl -s http://localhost:8000/ | head -5`
-Expected: HTML response containing "PodcastTransscribe"
+Expected: HTML response containing "Podcast Transcription and Search"
 
 ---
 

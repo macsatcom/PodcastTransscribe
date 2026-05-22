@@ -60,7 +60,7 @@ class RSSSourceAdapter(BaseSourceAdapter):
             raise ValueError("audio_url is empty")
 
         headers = {
-            "User-Agent": "Mozilla/5.0 (compatible; PodcastTransscribe/1.0; +https://github.com/ksn/PodcastTransscribe)",
+            "User-Agent": "Mozilla/5.0 (compatible; podcast-transcription-search/1.0; +https://github.com/ksn/podcast-transcription-search)",
         }
 
         for attempt in range(3):

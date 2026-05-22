@@ -1,10 +1,10 @@
-# PodcastTranscribe
+# Podcast Transcription and Search
 
 A self-hosted web application for subscribing to podcast RSS feeds, automatically transcribing episodes via OpenRouter AI, generating summaries, and providing full-text + semantic search across all transcribed content.
 
 ## From Personal Need to Creator Tool ##
 
-PodcastTransscribe started as a personal solution: searching through hundreds of podcast episodes to find "that episode where they talked about X." Full-text search wasn't enough—you needed semantic understanding. But building it revealed something bigger.
+Podcast Transcription and Search started as a personal solution: searching through hundreds of podcast episodes to find "that episode where they talked about X." Full-text search wasn't enough—you needed semantic understanding. But building it revealed something bigger.
 
 Content creators face the same challenge daily. A podcaster with 200+ episodes wants to reference back to an old discussion, prepare for a guest return, or find thematic connections across their archive. Manually scrolling through transcripts kills momentum. Semantic search solves this.
 
@@ -43,8 +43,8 @@ The tool isn't just for hosts. Co-hosts prep faster. Producers find clips. Audie
 ### 2. Run
 
 ```bash
-git clone https://github.com/macsatcom/PodcastTransscribe.git
-cd PodcastTransscribe
+git clone https://github.com/macsatcom/podcast-transcription-search.git
+cd podcast-transcription-search
 export OPENROUTER_API_KEY="sk-or-v1-..."
 docker compose up -d
 ```
@@ -124,7 +124,7 @@ Set `ASR_MODEL` environment variable to change model size.
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `OPENROUTER_API_KEY` | Yes | — | OpenRouter API key |
-| `DATABASE_URL` | No | `postgresql+asyncpg://podcast:podcast@db/podcast_transcribe` | Database connection |
+| `DATABASE_URL` | No | `postgresql+asyncpg://podcast:podcast@db/podcast_transcription_search` | Database connection |
 
 ## License
 

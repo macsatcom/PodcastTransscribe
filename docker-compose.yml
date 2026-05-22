@@ -4,11 +4,11 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     environment:
-      POSTGRES_DB: podcast_transcribe
+      POSTGRES_DB: podcast_transcription_search
       POSTGRES_USER: podcast
       POSTGRES_PASSWORD: podcast
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U podcast -d podcast_transcribe"]
+      test: ["CMD-SHELL", "pg_isready -U podcast -d podcast_transcription_search"]
       interval: 5s
       retries: 10
 
@@ -24,7 +24,7 @@ services:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql+asyncpg://podcast:podcast@db/podcast_transcribe
+      DATABASE_URL: postgresql+asyncpg://podcast:podcast@db/podcast_transcription_search
       OPENROUTER_API_KEY: "${OPENROUTER_API_KEY}"
       LOCAL_WHISPER_URL: "${LOCAL_WHISPER_URL:-http://whisper-cpu:9000}"
 
