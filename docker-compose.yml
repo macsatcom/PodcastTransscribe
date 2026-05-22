@@ -39,6 +39,7 @@ services:
     environment:
       - ASR_MODEL=large-v3
       - ASR_ENGINE=faster_whisper
+      - OMP_NUM_THREADS=${OMP_NUM_THREADS:-4}
     deploy:
       resources:
         limits:
