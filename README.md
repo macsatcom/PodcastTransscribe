@@ -2,6 +2,18 @@
 
 A self-hosted web application for subscribing to podcast RSS feeds, automatically transcribing episodes via OpenRouter AI, generating summaries, and providing full-text + semantic search across all transcribed content.
 
+## From Personal Need to Creator Tool ##
+
+PodcastTransscribe started as a personal solution: searching through hundreds of podcast episodes to find "that episode where they talked about X." Full-text search wasn't enough—you needed semantic understanding. But building it revealed something bigger.
+
+Content creators face the same challenge daily. A podcaster with 200+ episodes wants to reference back to an old discussion, prepare for a guest return, or find thematic connections across their archive. Manually scrolling through transcripts kills momentum. Semantic search solves this.
+
+With dual search (keyword + semantic), creators can ask natural questions: "Episodes where we discussed startup funding" or "Find the episode with that funny story about coffee." PostgreSQL FTS gives you precision; pgvector embeddings give you meaning. Together, they're powerful.
+
+Add summarization, and a creator reviewing their own content finds gold: key takeaways, guest highlights, recurring themes—all searchable, all instant.
+The tool isn't just for hosts. Co-hosts prep faster. Producers find clips. Audience members dig deeper. It's the archive search that podcasting always needed.
+
+
 ## Features
 
 - **RSS Feed Subscription** — Add podcast RSS URLs, auto-detect new episodes
