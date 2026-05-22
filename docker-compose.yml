@@ -13,7 +13,7 @@ services:
       retries: 10
 
   web:
-    image: ${IMAGE:-ghcr.io/macsatcom/podcast-transcription-search:latest}
+    build: .
     ports:
       - "0.0.0.0:${WEB_PORT:-8002}:8000"
       - "0.0.0.0:${PORTAL_PORT_RANGE:-9000-9010}:9000-9010"
