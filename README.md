@@ -1,4 +1,4 @@
-# PodcastTransscribe
+# PodcastTranscribe
 
 A self-hosted web application for subscribing to podcast RSS feeds, automatically transcribing episodes via OpenRouter AI, generating summaries, and providing full-text + semantic search across all transcribed content.
 
