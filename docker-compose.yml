@@ -13,10 +13,10 @@ services:
       retries: 10
 
   web:
-    build: .
+    image: ${IMAGE:-ghcr.io/macsatcom/podcast-transcription-search:latest}
     ports:
-      - "0.0.0.0:8002:8000"
-      - "0.0.0.0:9000-9010:9000-9010"
+      - "0.0.0.0:${WEB_PORT:-8002}:8000"
+      - "0.0.0.0:${PORTAL_PORT_RANGE:-9000-9010}:9000-9010"
     volumes:
       - ${DATA_DIR:-./data}/audio_cache:/tmp/audio
       - ${DATA_DIR:-./data}/portal_images:/app/portal_images
@@ -34,7 +34,7 @@ services:
     image: onerahmet/openai-whisper-asr-webservice:latest
     profiles: ["whisper"]
     ports:
-      - "0.0.0.0:9050:9000"
+      - "0.0.0.0:${WHISPER_CPU_PORT:-9050}:9000"
     volumes:
       - ${DATA_DIR:-./data}/whisper_models:/root/.cache/whisper
     environment:
@@ -51,7 +51,7 @@ services:
     image: jjajjara/rocm-whisper-api:latest
     profiles: ["whisper-rocm"]
     ports:
-      - "0.0.0.0:9001:9000"
+      - "0.0.0.0:${WHISPER_ROCM_PORT:-9001}:9000"
     volumes:
       - ${DATA_DIR:-./data}/whisper_models:/root/.cache/whisper
     environment:
