@@ -30,11 +30,10 @@ services:
 
   # CPU / NVIDIA GPU — onerahmet/openai-whisper-asr-webservice
   # Web bruger LOCAL_WHISPER_URL (default http://whisper-cpu:9000) til at forbinde
+  # Ingen ports exposes — kører kun på Docker internt netværk
   whisper-cpu:
     image: onerahmet/openai-whisper-asr-webservice:latest
     profiles: ["whisper"]
-    ports:
-      - "0.0.0.0:${WHISPER_CPU_PORT:-9050}:9000"
     volumes:
       - ${DATA_DIR:-./data}/whisper_models:/root/.cache/whisper
     environment:
@@ -50,8 +49,6 @@ services:
   whisper-rocm:
     image: jjajjara/rocm-whisper-api:latest
     profiles: ["whisper-rocm"]
-    ports:
-      - "0.0.0.0:${WHISPER_ROCM_PORT:-9001}:9000"
     volumes:
       - ${DATA_DIR:-./data}/whisper_models:/root/.cache/whisper
     environment:
