@@ -40,6 +40,7 @@ services:
       - ASR_MODEL=large-v3
       - ASR_ENGINE=faster_whisper
       - OMP_NUM_THREADS=${OMP_NUM_THREADS:-4}
+    cpu_shares: 256
     deploy:
       resources:
         limits:
