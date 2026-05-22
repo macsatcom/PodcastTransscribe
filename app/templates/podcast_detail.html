@@ -135,9 +135,12 @@
           <button x-show="ep.status === 'new' || ep.status === 'error'"
                   @click="processEpisode(ep)"
                   x-text="ep.processing ? '...' : 'Process'"
-                  :disabled="ep.processing"
+                  :disabled="ep.processing === true"
                   class="text-xs text-emerald-400 hover:text-emerald-300 disabled:text-gray-600">
           </button>
+          <button x-show="['downloading','transcribing','summarizing','indexing','processing'].includes(ep.status)"
+                  @click="resetEpisode(ep)"
+                  class="text-xs text-yellow-400 hover:text-yellow-300">Reset</button>
         </div>
       </div>
     </template>
@@ -275,6 +278,13 @@ function podcastDetail() {
       const r = await fetch('/api/podcasts/' + this.podcastId, { method: 'DELETE' });
       if (r.ok) window.location.href = '/';
       this.deleting = false;
+    },
+
+    async resetEpisode(ep) {
+      ep.processing = true;
+      await fetch('/api/episodes/' + ep.id + '/reset', { method: 'POST' });
+      ep.status = 'new';
+      ep.processing = false;
     },
 
     async processEpisode(ep) {

@@ -71,6 +71,28 @@ async def get_episode(episode_id: UUID, db: AsyncSession = Depends(get_db)):
     }
 
 
+@router.post("/{episode_id}/reset")
+async def reset_episode(
+    episode_id: UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    episode = await db.get(Episode, episode_id)
+    if not episode:
+        return {"error": "not found"}
+    transcript = await db.execute(
+        select(Transcript).where(Transcript.episode_id == episode_id)
+    )
+    transcript = transcript.scalar_one_or_none()
+    if transcript:
+        await db.delete(transcript)
+    episode.status = "new"
+    episode.error_message = None
+    episode.model_used = None
+    episode.processing_seconds = None
+    await db.commit()
+    return {"status": "reset"}
+
+
 @router.post("/{episode_id}/process")
 async def process_episode_endpoint(
     episode_id: UUID,
