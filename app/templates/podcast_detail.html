@@ -218,7 +218,7 @@ function podcastDetail() {
     async loadEpisodes() {
       this.loadingEpisodes = true;
       const r = await fetch('/api/episodes?podcast_id=' + this.podcastId);
-      this.episodes = await r.json();
+      this.episodes = (await r.json()).map(e => ({...e, processing: false}));
       this.loadingEpisodes = false;
     },
 
