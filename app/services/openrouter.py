@@ -44,7 +44,7 @@ class OpenRouterClient:
 
     def _is_whisper_model(self, model: str) -> bool:
         ml = model.lower()
-        return any(kw in ml for kw in ["whisper", "transcribe", "chirp"])
+        return not any(kw in ml for kw in ["gpt-audio", "audio-preview", "voxtral-small", "gemini"])
 
     async def transcribe_with_timestamps(self, model: str, audio_data: bytes) -> dict:
         if self._is_whisper_model(model):
@@ -52,7 +52,9 @@ class OpenRouterClient:
         return await self._chat_transcribe(model, audio_data)
 
     async def _whisper_transcribe(self, model: str, audio_data: bytes) -> dict:
-        import subprocess, tempfile, os, math, base64
+        import subprocess, tempfile, os, math, base64, asyncio
+        import logging
+        log = logging.getLogger(__name__)
 
         with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as f:
             f.write(audio_data)
@@ -91,21 +93,29 @@ class OpenRouterClient:
                     with open(chunk_path, "rb") as f:
                         chunk_data = f.read()
                 except Exception:
+                    log.warning("whisper chunk ffmpeg %d-%d failed", start, end)
                     continue
                 finally:
                     if os.path.exists(chunk_path):
                         os.unlink(chunk_path)
 
                 b64 = base64.b64encode(chunk_data).decode()
-                try:
-                    result = await self._post("audio/transcriptions", {
-                        "model": model,
-                        "input_audio": {"data": b64, "format": "wav"},
-                    })
-                    texts.append(result.get("text", ""))
-                    cost += (result.get("usage") or {}).get("cost", 0) or 0
-                except Exception:
-                    continue
+                for attempt in range(3):
+                    try:
+                        result = await self._post("audio/transcriptions", {
+                            "model": model,
+                            "input_audio": {"data": b64, "format": "wav"},
+                        })
+                        t = result.get("text", "")
+                        texts.append(t)
+                        cost += (result.get("usage") or {}).get("cost", 0) or 0
+                        break
+                    except Exception:
+                        if attempt == 2:
+                            log.warning("whisper chunk %d-%d failed after 3 retries", start, end)
+                        else:
+                            await asyncio.sleep(1)
+                await asyncio.sleep(0.5)
         finally:
             os.unlink(src_path)
             if os.path.exists(wav_path):
