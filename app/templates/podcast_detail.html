@@ -118,7 +118,7 @@
               <span x-text="ep.published_at ? new Date(ep.published_at).toLocaleDateString() : ''"></span>
               <span x-show="ep.duration_seconds" x-text="' · ' + Math.floor(ep.duration_seconds / 60) + ' min'"></span>
             </div>
-            <div x-show="ep.model_used" class="text-xs text-gray-600" x-text="ep.model_used + (ep.processing_seconds ? ' · ' + Math.round(ep.processing_seconds / 60) + ' min' : '')"></div>
+            <div x-show="ep.model_used" class="text-xs text-gray-600" x-text="ep.model_used + (ep.processing_seconds ? ' · ' + Math.round(ep.processing_seconds / 60) + ' min' : '') + (ep.cost ? ' · $' + ep.cost.toFixed(4) : '')"></div>
             <div x-show="ep.description" class="text-xs text-gray-400 mt-1 line-clamp-2" x-text="ep.description"></div>
           </a>
         </div>

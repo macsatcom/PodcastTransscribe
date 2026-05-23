@@ -8,11 +8,11 @@ SUMMARIZATION_MODEL_KEY = "summarization_model"
 DEFAULT_SUMMARIZATION_MODEL = "openai/gpt-4o-mini"
 
 
-async def generate_summary(session, full_text: str, language: str | None) -> str:
+async def generate_summary(session, full_text: str, language: str | None) -> tuple[str, float]:
     setting = await session.get(Setting, SUMMARIZATION_MODEL_KEY)
     model = setting.value if setting else DEFAULT_SUMMARIZATION_MODEL
     api_key = await get_api_key(session)
 
     async with OpenRouterClient(api_key=api_key) as client:
-        summary = await client.summarize(model, full_text, language or "english")
-        return summary
+        summary, cost = await client.summarize(model, full_text, language or "english")
+        return summary, cost

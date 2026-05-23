@@ -75,6 +75,7 @@ class OpenRouterClient:
 
             CHUNK_SECS = 60
             texts = []
+            cost = 0.0
 
             for start in range(0, total_secs, CHUNK_SECS):
                 end = min(start + CHUNK_SECS, total_secs)
@@ -102,6 +103,7 @@ class OpenRouterClient:
                         "input_audio": {"data": b64, "format": "wav"},
                     })
                     texts.append(result.get("text", ""))
+                    cost += (result.get("usage") or {}).get("cost", 0) or 0
                 except Exception:
                     continue
         finally:
@@ -124,10 +126,11 @@ class OpenRouterClient:
                 choices = formatted.get("choices", [])
                 if choices:
                     text = choices[0].get("message", {}).get("content", raw_text)
+                cost += (formatted.get("usage") or {}).get("cost", 0) or 0
             except Exception:
                 text = raw_text
 
-        return {"text": text, "segments": None}
+        return {"text": text, "segments": None, "cost": cost}
 
     async def _chat_transcribe(self, model: str, audio_data: bytes) -> dict:
         import base64, subprocess, tempfile, os
@@ -166,9 +169,10 @@ class OpenRouterClient:
         choices = result.get("choices", [])
         if not choices:
             raise ValueError("OpenRouter returned no choices")
-        return {"text": choices[0].get("message", {}).get("content", ""), "segments": None}
+        cost = (result.get("usage") or {}).get("cost", 0) or 0
+        return {"text": choices[0].get("message", {}).get("content", ""), "segments": None, "cost": cost}
 
-    async def summarize(self, model: str, transcript: str, language: str) -> str:
+    async def summarize(self, model: str, transcript: str, language: str) -> tuple[str, float]:
         prompt = (
             f"Summarize this podcast episode in {language or 'the same language as the transcript'} "
             f"in 3-5 paragraphs:\n\n{transcript}"
@@ -183,7 +187,8 @@ class OpenRouterClient:
         choices = result.get("choices", [])
         if not choices:
             raise ValueError("OpenRouter returned no choices")
-        return choices[0].get("message", {}).get("content", "")
+        cost = (result.get("usage") or {}).get("cost", 0) or 0
+        return choices[0].get("message", {}).get("content", ""), cost
 
     async def embed(self, model: str, text: str) -> list[float]:
         result = await self._post("embeddings", {

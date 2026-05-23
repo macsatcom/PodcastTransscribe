@@ -38,6 +38,7 @@ async def list_episodes(
             "error_message": e.error_message,
             "model_used": e.model_used,
             "processing_seconds": e.processing_seconds,
+            "cost": e.cost,
         }
         for e in episodes
     ]
@@ -63,6 +64,7 @@ async def get_episode(episode_id: UUID, db: AsyncSession = Depends(get_db)):
         "error_message": episode.error_message,
         "model_used": episode.model_used,
         "processing_seconds": episode.processing_seconds,
+        "cost": episode.cost,
         "transcript": {
             "full_text": transcript.full_text if transcript else None,
             "summary": transcript.summary if transcript else None,
