@@ -42,10 +42,11 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Podcast Transcription and Search", lifespan=lifespan)
 
-from app.routers import api_podcasts, api_episodes, api_search, api_settings, ui, api_portals
+from app.routers import api_podcasts, api_episodes, api_queue, api_search, api_settings, ui, api_portals
 
 app.include_router(api_podcasts.router)
 app.include_router(api_episodes.router)
+app.include_router(api_queue.router)
 app.include_router(api_search.router)
 app.include_router(api_settings.router)
 app.include_router(ui.router)

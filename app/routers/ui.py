@@ -31,6 +31,11 @@ async def search_page(request: Request):
     return templates.TemplateResponse(request, "search.html")
 
 
+@router.get("/queue", response_class=HTMLResponse)
+async def queue_page(request: Request):
+    return templates.TemplateResponse(request, "queue.html")
+
+
 @router.get("/admin", response_class=HTMLResponse)
 async def admin_page(request: Request):
     return templates.TemplateResponse(request, "admin.html")
