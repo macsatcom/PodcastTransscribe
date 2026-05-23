@@ -72,8 +72,6 @@ async def list_models(db: AsyncSession = Depends(get_db)):
 
     defaults = {
         "transcription": [
-            "local-whisper",
-            "self-hosted-whisper",
             "openai/whisper-1",
             "openai/whisper-large-v3",
             "openai/whisper-large-v3-turbo",

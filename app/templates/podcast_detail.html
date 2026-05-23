@@ -141,6 +141,9 @@
           <button x-show="['downloading','transcribing','summarizing','indexing','processing'].includes(ep.status)"
                   @click="resetEpisode(ep)"
                   class="text-xs text-yellow-400 hover:text-yellow-300">Reset</button>
+          <button x-show="ep.status === 'error'"
+                  @click="resetEpisode(ep)"
+                  class="text-xs text-yellow-400 hover:text-yellow-300">Reset &amp; Retry</button>
         </div>
       </div>
     </template>

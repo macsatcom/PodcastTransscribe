@@ -52,16 +52,82 @@ class OpenRouterClient:
         return await self._chat_transcribe(model, audio_data)
 
     async def _whisper_transcribe(self, model: str, audio_data: bytes) -> dict:
-        files = {"file": ("audio.mp3", audio_data, "audio/mpeg")}
-        response = await self._http.post(
-            f"{self.base_url}/audio/transcriptions",
-            headers={"Authorization": f"Bearer {self.api_key}"},
-            data={"model": model, "response_format": "verbose_json"},
-            files=files,
-        )
-        response.raise_for_status()
-        result = response.json()
-        return {"text": result.get("text", ""), "segments": result.get("segments")}
+        import subprocess, tempfile, os, math, base64
+
+        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as f:
+            f.write(audio_data)
+            src_path = f.name
+
+        try:
+            wav_path = src_path + ".wav"
+            subprocess.run(
+                ["ffmpeg", "-y", "-i", src_path,
+                 "-vn", "-ar", "16000", "-ac", "1", "-f", "wav", wav_path],
+                capture_output=True, timeout=120,
+            )
+
+            dur = subprocess.run(
+                ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+                 "-of", "default=noprint_wrappers=1:nokey=1", wav_path],
+                capture_output=True, text=True, timeout=30,
+            )
+            total_secs = math.ceil(float(dur.stdout.strip()))
+
+            CHUNK_SECS = 60
+            texts = []
+
+            for start in range(0, total_secs, CHUNK_SECS):
+                end = min(start + CHUNK_SECS, total_secs)
+                chunk_path = src_path + f"_{start}.wav"
+                try:
+                    subprocess.run(
+                        ["ffmpeg", "-y", "-ss", str(start), "-to", str(end),
+                         "-i", wav_path,
+                         "-vn", "-ar", "16000", "-ac", "1",
+                         "-f", "wav", chunk_path],
+                        capture_output=True, timeout=120,
+                    )
+                    with open(chunk_path, "rb") as f:
+                        chunk_data = f.read()
+                except Exception:
+                    continue
+                finally:
+                    if os.path.exists(chunk_path):
+                        os.unlink(chunk_path)
+
+                b64 = base64.b64encode(chunk_data).decode()
+                try:
+                    result = await self._post("audio/transcriptions", {
+                        "model": model,
+                        "input_audio": {"data": b64, "format": "wav"},
+                    })
+                    texts.append(result.get("text", ""))
+                except Exception:
+                    continue
+        finally:
+            os.unlink(src_path)
+            if os.path.exists(wav_path):
+                os.unlink(wav_path)
+
+        raw_text = " ".join(texts)
+        text = raw_text
+
+        if raw_text:
+            try:
+                formatted = await self._post("chat/completions", {
+                    "model": "openai/gpt-4o-mini",
+                    "messages": [
+                        {"role": "system", "content": "You format raw speech transcripts into readable paragraphs. Only insert blank lines between paragraphs at natural breaks — never change, add, or remove any words or punctuation."},
+                        {"role": "user", "content": f"Insert blank lines between paragraphs in this transcript at natural topic shifts or speaker changes. Do NOT change any words:\n\n{raw_text}"},
+                    ],
+                })
+                choices = formatted.get("choices", [])
+                if choices:
+                    text = choices[0].get("message", {}).get("content", raw_text)
+            except Exception:
+                text = raw_text
+
+        return {"text": text, "segments": None}
 
     async def _chat_transcribe(self, model: str, audio_data: bytes) -> dict:
         import base64, subprocess, tempfile, os
