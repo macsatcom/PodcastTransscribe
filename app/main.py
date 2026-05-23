@@ -1,11 +1,15 @@
+import logging
 import os
 from contextlib import asynccontextmanager
+
+logger = logging.getLogger(__name__)
 
 from fastapi import FastAPI
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from sqlalchemy import select, text
 
 from app.database import engine, Base, async_session
+from app.models.episode import Episode
 from app.models.portal import Portal
 from app.services.rss_poller import poll_all_feeds
 from app.portal_manager import portal_manager
@@ -20,6 +24,20 @@ async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
         await conn.run_sync(Base.metadata.create_all)
+    async with async_session() as session:
+        result = await session.execute(
+            select(Episode).where(Episode.status.in_([
+                "downloading", "transcribing", "summarizing", "indexing",
+            ]))
+        )
+        stale = result.scalars().all()
+        for ep in stale:
+            ep.status = "new"
+            ep.error_message = None
+        await session.commit()
+        if stale:
+            logger.info("Reset %d stale processing episodes to queued", len(stale))
+
     scheduler.add_job(
         poll_all_feeds,
         trigger="interval",
