@@ -62,16 +62,20 @@ class OpenRouterClient:
 
         try:
             wav_path = src_path + ".wav"
-            subprocess.run(
-                ["ffmpeg", "-y", "-i", src_path,
-                 "-vn", "-ar", "16000", "-ac", "1", "-f", "wav", wav_path],
-                capture_output=True, timeout=120,
+            await asyncio.to_thread(
+                lambda: subprocess.run(
+                    ["ffmpeg", "-y", "-i", src_path,
+                     "-vn", "-ar", "16000", "-ac", "1", "-f", "wav", wav_path],
+                    capture_output=True, timeout=120,
+                )
             )
 
-            dur = subprocess.run(
-                ["ffprobe", "-v", "error", "-show_entries", "format=duration",
-                 "-of", "default=noprint_wrappers=1:nokey=1", wav_path],
-                capture_output=True, text=True, timeout=30,
+            dur = await asyncio.to_thread(
+                lambda: subprocess.run(
+                    ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+                     "-of", "default=noprint_wrappers=1:nokey=1", wav_path],
+                    capture_output=True, text=True, timeout=30,
+                )
             )
             total_secs = math.ceil(float(dur.stdout.strip()))
 
@@ -83,15 +87,18 @@ class OpenRouterClient:
                 end = min(start + CHUNK_SECS, total_secs)
                 chunk_path = src_path + f"_{start}.wav"
                 try:
-                    subprocess.run(
-                        ["ffmpeg", "-y", "-ss", str(start), "-to", str(end),
-                         "-i", wav_path,
-                         "-vn", "-ar", "16000", "-ac", "1",
-                         "-f", "wav", chunk_path],
-                        capture_output=True, timeout=120,
+                    await asyncio.to_thread(
+                        lambda: subprocess.run(
+                            ["ffmpeg", "-y", "-ss", str(start), "-to", str(end),
+                             "-i", wav_path,
+                             "-vn", "-ar", "16000", "-ac", "1",
+                             "-f", "wav", chunk_path],
+                            capture_output=True, timeout=120,
+                        )
                     )
+                    loop = asyncio.get_running_loop()
                     with open(chunk_path, "rb") as f:
-                        chunk_data = f.read()
+                        chunk_data = await loop.run_in_executor(None, f.read)
                 except Exception:
                     log.warning("whisper chunk ffmpeg %d-%d failed", start, end)
                     continue
@@ -143,7 +150,7 @@ class OpenRouterClient:
         return {"text": text, "segments": None, "cost": cost}
 
     async def _chat_transcribe(self, model: str, audio_data: bytes) -> dict:
-        import base64, subprocess, tempfile, os
+        import asyncio, base64, subprocess, tempfile, os
 
         with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as f:
             f.write(audio_data)
@@ -151,14 +158,17 @@ class OpenRouterClient:
 
         try:
             out_path = mp3_path + "_compressed.mp3"
-            subprocess.run(
-                ["ffmpeg", "-y", "-i", mp3_path,
-                 "-vn", "-ar", "16000", "-ac", "1", "-b:a", "24k",
-                 "-f", "mp3", out_path],
-                capture_output=True, timeout=120,
+            await asyncio.to_thread(
+                lambda: subprocess.run(
+                    ["ffmpeg", "-y", "-i", mp3_path,
+                     "-vn", "-ar", "16000", "-ac", "1", "-b:a", "24k",
+                     "-f", "mp3", out_path],
+                    capture_output=True, timeout=120,
+                )
             )
+            loop = asyncio.get_running_loop()
             with open(out_path, "rb") as f:
-                compressed = f.read()
+                compressed = await loop.run_in_executor(None, f.read)
         finally:
             os.unlink(mp3_path)
             if os.path.exists(out_path):

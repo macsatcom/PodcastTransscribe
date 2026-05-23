@@ -1,3 +1,4 @@
+import asyncio
 from uuid import UUID
 
 from fastapi import APIRouter, Depends
@@ -103,5 +104,5 @@ async def process_episode_endpoint(
     episode = await db.get(Episode, episode_id)
     if not episode:
         return {"error": "not found"}
-    await process_episode(episode_id)
+    asyncio.create_task(process_episode(episode_id))
     return {"status": "processing"}

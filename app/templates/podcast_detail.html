@@ -292,14 +292,26 @@ function podcastDetail() {
 
     async processEpisode(ep) {
       ep.processing = true;
-      await fetch('/api/episodes/' + ep.id + '/process', { method: 'POST' });
+      try {
+        await fetch('/api/episodes/' + ep.id + '/process', { method: 'POST' });
+      } catch (e) {
+        ep.status = 'error';
+        ep.error_message = 'Failed to start processing';
+        ep.processing = false;
+        return;
+      }
       ep.status = 'processing';
       const poll = setInterval(async () => {
-        const r = await fetch('/api/episodes/' + ep.id);
-        const data = await r.json();
-        ep.status = data.status;
-        ep.error_message = data.error_message;
-        if (data.status !== 'processing' && data.status !== 'downloading' && data.status !== 'transcribing' && data.status !== 'summarizing' && data.status !== 'indexing') {
+        try {
+          const r = await fetch('/api/episodes/' + ep.id);
+          const data = await r.json();
+          ep.status = data.status;
+          ep.error_message = data.error_message;
+          if (data.status !== 'processing' && data.status !== 'downloading' && data.status !== 'transcribing' && data.status !== 'summarizing' && data.status !== 'indexing') {
+            clearInterval(poll);
+            ep.processing = false;
+          }
+        } catch (e) {
           clearInterval(poll);
           ep.processing = false;
         }
@@ -307,13 +319,14 @@ function podcastDetail() {
     },
 
     async processSelected() {
-      for (const id of this.selectedIds) {
+      const ids = [...this.selectedIds];
+      this.selectedIds = [];
+      for (const id of ids) {
         const ep = this.episodes.find(e => e.id === id);
         if (ep && (ep.status === 'new' || ep.status === 'error')) {
-          await this.processEpisode(ep);
+          this.processEpisode(ep);
         }
       }
-      this.selectedIds = [];
     },
 
     async processAll() {
@@ -321,7 +334,7 @@ function podcastDetail() {
       this.processAllResult = '';
       const pending = this.episodes.filter(e => e.status === 'new' || e.status === 'error');
       for (const ep of pending) {
-        await this.processEpisode(ep);
+        this.processEpisode(ep);
       }
       this.processAllResult = `Started processing ${pending.length} episode(s).`;
       this.processingAll = false;
