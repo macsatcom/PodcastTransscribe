@@ -118,6 +118,9 @@ async def browse_library_items(
         else:
             num_total = media.get("numChapters", 0) or 0
 
+        if media_type == "book" and num_total == 0 and not media.get("duration"):
+            media_type = "ebook"
+
         transcribe_status = "none"
         latest_model = None
         total_processing_seconds = None
