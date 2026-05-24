@@ -1,14 +1,17 @@
 {% extends "base.html" %}
 {% block content %}
 <div x-data="itemDetail()" x-init="loadItem()">
-  <a href="/" class="text-emerald-400 hover:text-emerald-300 text-sm mb-4 inline-block">&larr; Back</a>
+  <a href="/" class="text-sm font-medium text-secondary hover:text-primary mb-4 inline-block" style="display:flex;align-items:center;gap:4px;">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+    Back
+  </a>
 
-  <div x-show="loading" class="animate-pulse space-y-4 mb-6">
+  <div x-show="loading" class="flex flex-col gap-4 mb-6">
     <div class="flex items-center gap-4">
-      <div class="w-16 h-16 bg-gray-800 rounded flex-shrink-0"></div>
-      <div class="space-y-2 flex-1">
-        <div class="h-6 w-64 bg-gray-800 rounded"></div>
-        <div class="h-4 w-40 bg-gray-800 rounded"></div>
+      <div class="skeleton" style="width:80px;height:80px;border-radius:8px;"></div>
+      <div class="flex-1 flex flex-col gap-2">
+        <div class="skeleton" style="width:60%;height:24px;"></div>
+        <div class="skeleton" style="width:30%;height:14px;"></div>
       </div>
     </div>
   </div>
@@ -16,32 +19,25 @@
   <div x-show="!loading" class="mb-6">
     <div class="flex items-center gap-4">
       <template x-if="item.cover_url">
-        <img :src="item.cover_url" class="w-20 h-20 rounded-lg flex-shrink-0 object-cover">
+        <img :src="item.cover_url" style="width:80px;height:80px;border-radius:8px;flex-shrink:0;object-fit:cover;box-shadow:0 8px 24px rgba(0,0,0,0.5);">
       </template>
       <div>
         <div class="flex items-center gap-3">
-          <h1 class="text-2xl font-bold" x-text="item.title"></h1>
-          <span class="text-xs px-2 py-0.5 rounded font-medium"
-                :class="item.media_type === 'podcast' ? 'bg-emerald-800 text-emerald-200' : item.media_type === 'book' ? 'bg-blue-800 text-blue-200' : 'bg-gray-700 text-gray-400'"
-                x-text="item.media_type">
-          </span>
+          <h1 class="page-title" x-text="item.title"></h1>
+          <span class="badge" :class="item.media_type === 'podcast' ? 'badge-green' : item.media_type === 'book' ? 'badge-blue' : 'badge-gray'" x-text="item.media_type"></span>
         </div>
-        <p class="text-gray-400 text-sm mt-1">
+        <p class="text-sm text-secondary mt-1">
           <span x-show="item.author" x-text="item.author"></span>
           <span x-show="item.author && item.narrator"> &middot; </span>
-          <span x-show="item.narrator" x-text="item.narrator"></span>
+          <span x-show="item.narrator" class="text-tertiary" x-text="item.narrator"></span>
         </p>
 
         <div class="flex items-center gap-4 mt-4">
           <label x-show="item.media_type === 'podcast'" class="flex items-center gap-2 text-sm cursor-pointer">
-            <input type="checkbox" x-model="autoProcess" @change="toggleAutoProcess()"
-                   class="rounded bg-gray-800 border-gray-600">
-            <span>Auto-process new episodes</span>
+            <input type="checkbox" x-model="autoProcess" @change="toggleAutoProcess()" class="checkbox">
+            <span class="font-medium">Auto-process new episodes</span>
           </label>
-
-          <button x-show="item.media_type === 'book'"
-                  @click="enqueueAllPending()" :disabled="transcribing"
-                  class="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 px-4 py-2 rounded text-sm font-medium">
+          <button x-show="item.media_type === 'book'" @click="enqueueAllPending()" :disabled="transcribing" class="btn btn-primary">
             <span x-text="transcribing ? 'Enqueuing...' : 'Transcribe Book'"></span>
           </button>
         </div>
@@ -51,82 +47,69 @@
 
   <div x-show="!loading" x-cloak>
     <div class="flex items-center justify-between mb-3">
-      <h2 class="text-lg font-semibold" x-text="item.media_type === 'podcast' ? 'Episodes' : 'Chapters'"></h2>
+      <h2 class="section-title" x-text="item.media_type === 'podcast' ? 'Episodes' : 'Chapters'"></h2>
     </div>
 
     <div class="flex items-center gap-3 mb-4">
-      <label class="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer">
-        <input type="checkbox" @change="selectAll($event)" class="rounded bg-gray-800 border-gray-600">
-        Select all
+      <label class="flex items-center gap-2 text-xs font-medium text-secondary cursor-pointer">
+        <input type="checkbox" @change="selectAll($event)" class="checkbox"> Select all
       </label>
-      <button @click="transcribeSelected()"
-              x-show="selectedIds.length > 0" :disabled="transcribing"
-              class="bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 px-3 py-1.5 rounded text-xs font-medium"
-              x-text="'Transcribe Selected (' + selectedIds.length + ')'">
+      <button @click="transcribeSelected()" x-show="selectedIds.length > 0" :disabled="transcribing"
+              class="btn btn-primary btn-sm" x-text="'Transcribe Selected (' + selectedIds.length + ')'">
       </button>
     </div>
 
-    <div class="flex gap-1.5 mb-4">
+    <div class="tabs mb-4">
       <template x-for="s in statusFilters" :key="s.key">
-        <button @click="statusFilter = s.key"
-                class="text-xs px-3 py-1.5 rounded transition-colors"
-                :class="statusFilter === s.key ? 'bg-emerald-700 text-white' : 'bg-gray-800 text-gray-500 hover:text-white'"
-                x-text="s.label">
-        </button>
+        <button @click="statusFilter = s.key" class="tab" :class="{ active: statusFilter === s.key }" x-text="s.label"></button>
       </template>
     </div>
 
-    <div class="space-y-2">
+    <div class="flex flex-col gap-1">
       <template x-for="ep in filteredEpisodes" :key="ep.our_episode_id || ep.id || Math.random()">
-        <div class="flex items-center gap-3 p-3 bg-gray-900 rounded-lg border border-gray-800 transition">
-          <input type="checkbox"
-                 :checked="selectedIds.includes(ep.our_episode_id)"
+        <div class="table-row">
+          <input type="checkbox" :checked="selectedIds.includes(ep.our_episode_id)"
                  @change="selectedIds.includes(ep.our_episode_id) ? selectedIds.splice(selectedIds.indexOf(ep.our_episode_id), 1) : selectedIds.push(ep.our_episode_id)"
-                 class="rounded bg-gray-800 border-gray-600 flex-shrink-0"
-                 :disabled="!ep.our_episode_id">
+                 class="checkbox flex-shrink-0" :disabled="!ep.our_episode_id">
           <div class="min-w-0 flex-1">
             <template x-if="ep.status === 'ready' && ep.our_episode_id">
-              <a :href="'/episodes/' + ep.our_episode_id" class="text-sm font-medium truncate block hover:text-emerald-400" x-text="ep.title"></a>
+              <a :href="'/episodes/' + ep.our_episode_id" class="text-sm font-medium truncate link-underline" style="display:inline;" x-text="ep.title"></a>
             </template>
             <template x-if="ep.status !== 'ready' || !ep.our_episode_id">
-              <div class="text-sm font-medium truncate" x-text="ep.title"></div>
+              <span class="text-sm font-medium truncate" x-text="ep.title"></span>
             </template>
-            <div x-show="ep.duration || ep.published_at" class="text-xs text-gray-500 mt-0.5 space-x-2">
+            <div x-show="ep.duration || ep.published_at" class="text-2xs text-tertiary mt-1 flex gap-3">
               <span x-show="ep.published_at" x-text="new Date(ep.published_at).toLocaleDateString('da-DK', {day:'numeric', month:'short', year:'numeric'})"></span>
               <span x-show="ep.duration" x-text="formatDuration(ep.duration)"></span>
             </div>
-            <div x-show="ep.model_used" class="text-xs text-gray-600 mt-0.5 truncate" x-text="ep.model_used + (ep.processing_seconds ? ' \\u00b7 ' + Math.round(ep.processing_seconds / 60) + 'm' : '')"></div>
-            <div x-show="ep.status === 'error' && ep.error_message" class="text-xs text-red-500 mt-0.5 truncate" x-text="ep.error_message"></div>
+            <div x-show="ep.model_used" class="text-2xs text-tertiary mt-1" x-text="ep.model_used + (ep.processing_seconds ? ' \u00b7 ' + Math.round(ep.processing_seconds / 60) + 'm' : '')"></div>
+            <div x-show="ep.status === 'error' && ep.error_message" class="text-2xs text-red mt-1 truncate" x-text="ep.error_message"></div>
           </div>
           <div class="flex items-center gap-2 flex-shrink-0">
             <template x-if="ep.status === 'none' || ep.status === 'new'">
-              <span class="text-xs px-2 py-0.5 rounded bg-gray-700 text-gray-400">Not transcribed</span>
+              <span class="badge badge-gray">Not transcribed</span>
             </template>
             <template x-if="ep.status === 'processing'">
-              <span class="text-xs px-2 py-0.5 rounded bg-blue-700 text-blue-200">Processing...</span>
+              <span class="badge badge-dot badge-blue">Processing</span>
             </template>
             <template x-if="ep.status === 'ready'">
-              <a :href="'/episodes/' + ep.our_episode_id" class="text-xs px-2 py-0.5 rounded bg-emerald-700 text-emerald-200 hover:bg-emerald-600 no-underline">&checkmark; Transcribed</a>
+              <a :href="'/episodes/' + ep.our_episode_id" class="badge badge-green">Transcribed</a>
             </template>
             <template x-if="ep.status === 'error'">
               <div class="flex items-center gap-2">
-                <span class="text-xs px-2 py-0.5 rounded bg-red-700 text-red-200">Error</span>
-                <button @click="processEpisode(ep.our_episode_id)" :disabled="!ep.our_episode_id"
-                        class="text-xs text-emerald-400 hover:text-emerald-300">
-                  Retry
-                </button>
+                <span class="badge badge-red">Error</span>
+                <button @click="processEpisode(ep.our_episode_id)" :disabled="!ep.our_episode_id" class="btn btn-ghost btn-sm text-accent">Retry</button>
               </div>
             </template>
 
             <button x-show="(ep.status === 'none' || ep.status === 'new') && ep.our_episode_id"
-                    @click="processEpisode(ep.our_episode_id)"
-                    class="text-xs text-emerald-400 hover:text-emerald-300">
-              Transcribe
-            </button>
+                    @click="processEpisode(ep.our_episode_id)" class="btn btn-primary btn-sm">Transcribe</button>
           </div>
         </div>
       </template>
-      <p x-show="filteredEpisodes.length === 0 && !loading" class="text-gray-500 text-sm">No items found.</p>
+      <div x-show="filteredEpisodes.length === 0 && !loading" class="empty-state">
+        <p class="font-medium text-sm">No items found</p>
+      </div>
     </div>
   </div>
 </div>
@@ -164,7 +147,7 @@ function itemDetail() {
       const m = Math.floor(seconds / 60);
       const s = Math.floor(seconds % 60);
       if (m >= 60) { const h = Math.floor(m / 60); return h + 'h ' + (m % 60) + 'm'; }
-      return m + ' min ' + s + ' sec';
+      return m + 'm ' + s + 's';
     },
 
     async loadItem() {
@@ -175,9 +158,7 @@ function itemDetail() {
         this.item = data;
         this.episodes = data.episodes || [];
         this.autoProcess = data.auto_process || false;
-      } catch (e) {
-        console.error('Failed to load item', e);
-      }
+      } catch (e) { console.error('Failed to load item', e); }
       this.loading = false;
     },
 
@@ -194,21 +175,14 @@ function itemDetail() {
     async processEpisode(epId) {
       if (!epId) return;
       this.transcribing = true;
-      try {
-        await fetch('/api/episodes/' + epId + '/process', { method: 'POST' });
-        await this.loadItem();
-      } catch (e) {
-        console.error('Failed', e);
-      }
+      try { await fetch('/api/episodes/' + epId + '/process', { method: 'POST' }); await this.loadItem(); }
+      catch (e) { console.error('Failed', e); }
       this.transcribing = false;
     },
 
     selectAll(event) {
-      if (event.target.checked) {
-        this.selectedIds = this.episodes.filter(e => e.our_episode_id).map(e => e.our_episode_id);
-      } else {
-        this.selectedIds = [];
-      }
+      if (event.target.checked) this.selectedIds = this.episodes.filter(e => e.our_episode_id).map(e => e.our_episode_id);
+      else this.selectedIds = [];
     },
 
     async transcribeSelected() {
@@ -222,20 +196,14 @@ function itemDetail() {
         });
         this.selectedIds = [];
         await this.loadItem();
-      } catch (e) {
-        console.error('Failed', e);
-      }
+      } catch (e) { console.error('Failed', e); }
       this.transcribing = false;
     },
 
     async enqueueAllPending() {
       this.transcribing = true;
-      try {
-        await fetch('/api/abs/items/' + this.absItemId + '/enqueue-pending', { method: 'POST' });
-        await this.loadItem();
-      } catch (e) {
-        console.error('Failed', e);
-      }
+      try { await fetch('/api/abs/items/' + this.absItemId + '/enqueue-pending', { method: 'POST' }); await this.loadItem(); }
+      catch (e) { console.error('Failed', e); }
       this.transcribing = false;
     },
   };

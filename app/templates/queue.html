@@ -3,52 +3,51 @@
 <div x-data="queueView()" x-init="loadQueue(); startPolling()">
   <div class="flex items-start justify-between mb-6">
     <div>
-      <h1 class="text-2xl font-bold">Queue</h1>
-      <p x-show="qm.workers" class="text-xs text-gray-500 mt-1">
-        <span x-text="qm.workers"></span> workers
-        <span x-show="qm.queue_size > 0" x-text="' \u2014 ' + qm.queue_size + ' in queue'"></span>
-        <span x-show="qm.running_count > 0" x-text="' \u2014 ' + qm.running_count + ' processing'"></span>
-      </p>
+      <h1 class="page-title">Queue</h1>
+      <div class="flex items-center gap-4 mt-2">
+        <div class="flex items-center gap-2 text-sm text-secondary">
+          <div class="status-dot green"></div>
+          <span x-text="qm.workers"></span> workers
+        </div>
+        <div x-show="qm.queue_size > 0" class="flex items-center gap-2 text-sm text-secondary">
+          <span x-text="qm.queue_size + ' in queue'"></span>
+        </div>
+        <div x-show="qm.running_count > 0" class="flex items-center gap-2 text-sm text-secondary">
+          <div class="spinner" style="width:14px;height:14px;"></div>
+          <span x-text="qm.running_count + ' processing'"></span>
+        </div>
+      </div>
     </div>
     <div class="flex items-center gap-3">
-      <button @click="processAllPending()" class="bg-emerald-800 hover:bg-emerald-700 px-3 py-1.5 rounded text-xs font-medium"
-              x-text="processingAll ? 'Enqueuing...' : 'Process All Pending'"
-              :disabled="processingAll">
+      <button @click="processAllPending()" class="btn btn-primary" :disabled="processingAll"
+              x-text="processingAll ? 'Enqueuing...' : 'Process All Pending'">
       </button>
-      <div class="flex items-center gap-3 text-sm">
-        <span x-show="counts.running > 0" class="flex items-center gap-1 text-blue-400">
-          <svg class="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-          </svg>
+      <div class="flex items-center gap-4">
+        <span x-show="counts.running > 0" class="flex items-center gap-2 text-sm font-medium" style="color:#539df5;">
+          <div class="spinner" style="width:14px;height:14px;border-top-color:#539df5;"></div>
           <span x-text="counts.running"></span> running
         </span>
-        <span class="text-yellow-400" x-show="counts.queued > 0" x-text="counts.queued + ' in queue'"></span>
-        <span class="text-red-400" x-show="counts.error > 0" x-text="counts.error + ' failed'"></span>
-        <span class="text-gray-500" x-text="counts.done + ' completed'"></span>
-        <span x-show="counts.new_total > counts.queued" class="text-gray-600 text-xs">(<span x-text="counts.new_total"></span> new in DB)</span>
+        <span class="text-sm font-medium" style="color:#ffa42b;" x-show="counts.queued > 0" x-text="counts.queued + ' in queue'"></span>
+        <span class="text-sm font-medium text-red" x-show="counts.error > 0" x-text="counts.error + ' failed'"></span>
+        <span class="text-sm font-medium text-tertiary" x-text="counts.done + ' completed'"></span>
+        <span x-show="counts.new_total > counts.queued" class="text-2xs text-tertiary" x-text="'(' + counts.new_total + ' new in DB)'"></span>
       </div>
     </div>
   </div>
 
-  <div class="space-y-6">
+  <div class="flex flex-col gap-6">
     <!-- Running -->
     <div x-show="running.length > 0">
-      <h2 class="text-sm font-semibold text-blue-400 mb-2 flex items-center gap-2">
-        <svg class="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-        </svg>
-        Running (<span x-text="running.length"></span>)
-      </h2>
-      <div class="space-y-1">
+      <h2 class="section-title mb-3">Running</h2>
+      <div class="flex flex-col gap-1">
         <template x-for="ep in running" :key="ep.id">
-          <a :href="'/episodes/' + ep.id" class="flex items-center justify-between p-2.5 bg-blue-900/20 border border-blue-800/40 rounded-lg hover:bg-blue-900/30 transition text-sm">
+          <a :href="'/episodes/' + ep.id" class="table-row" style="background:rgba(83,157,245,0.06);">
+            <div class="spinner flex-shrink-0" style="width:14px;height:14px;border-top-color:#539df5;"></div>
             <div class="min-w-0 flex-1">
-              <span class="font-medium truncate" x-text="ep.title"></span>
-              <span class="text-gray-500 ml-2" x-text="ep.podcast_title"></span>
+              <span class="text-sm font-medium truncate" x-text="ep.title"></span>
+              <span class="text-2xs text-secondary ml-2" x-text="ep.podcast_title"></span>
             </div>
-            <span class="text-xs px-2 py-0.5 rounded bg-blue-700 text-blue-200 flex-shrink-0 ml-2" x-text="ep.status"></span>
+            <span class="badge badge-dot badge-blue flex-shrink-0" x-text="ep.status"></span>
           </a>
         </template>
       </div>
@@ -56,21 +55,16 @@
 
     <!-- Queued -->
     <div x-show="queued.length > 0">
-      <h2 class="text-sm font-semibold text-yellow-400 mb-2 flex items-center gap-2">
-        <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="10"/>
-          <polyline points="12 6 12 12 16 14"/>
-        </svg>
-        In Queue (<span x-text="queued.length"></span>)
-      </h2>
-      <div class="space-y-1">
+      <h2 class="section-title mb-3">In Queue</h2>
+      <div class="flex flex-col gap-1">
         <template x-for="ep in queued" :key="ep.id">
-          <a :href="'/episodes/' + ep.id" class="flex items-center justify-between p-2.5 bg-gray-800/50 border border-gray-700/50 rounded-lg hover:bg-gray-800 transition text-sm">
+          <a :href="'/episodes/' + ep.id" class="table-row">
+            <div class="status-dot yellow flex-shrink-0"></div>
             <div class="min-w-0 flex-1">
-              <span class="font-medium truncate" x-text="ep.title"></span>
-              <span class="text-gray-500 ml-2" x-text="ep.podcast_title"></span>
+              <span class="text-sm font-medium truncate" x-text="ep.title"></span>
+              <span class="text-2xs text-secondary ml-2" x-text="ep.podcast_title"></span>
             </div>
-            <span class="text-xs px-2 py-0.5 rounded bg-yellow-700 text-yellow-200 flex-shrink-0 ml-2">queued</span>
+            <span class="badge badge-yellow flex-shrink-0">queued</span>
           </a>
         </template>
       </div>
@@ -78,53 +72,44 @@
 
     <!-- Error -->
     <div x-show="error.length > 0">
-      <h2 class="text-sm font-semibold text-red-400 mb-2 flex items-center gap-2">
-        <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="10"/>
-          <line x1="15" y1="9" x2="9" y2="15"/>
-          <line x1="9" y1="9" x2="15" y2="15"/>
-        </svg>
-        Failed (<span x-text="error.length"></span>)
-      </h2>
-      <div class="space-y-1">
+      <h2 class="section-title mb-3">Failed</h2>
+      <div class="flex flex-col gap-1">
         <template x-for="ep in error" :key="ep.id">
-          <a :href="'/episodes/' + ep.id" class="flex items-center justify-between p-2.5 bg-red-900/20 border border-red-800/40 rounded-lg hover:bg-red-900/30 transition text-sm">
+          <div class="table-row">
+            <div class="status-dot red flex-shrink-0"></div>
             <div class="min-w-0 flex-1">
-              <span class="font-medium truncate" x-text="ep.title"></span>
-              <span class="text-gray-500 ml-2" x-text="ep.podcast_title"></span>
-              <p x-show="ep.error_message" class="text-xs text-red-400 mt-0.5 truncate" x-text="ep.error_message"></p>
+              <a :href="'/episodes/' + ep.id" class="text-sm font-medium truncate link-underline" style="display:inline;" x-text="ep.title"></a>
+              <span class="text-2xs text-secondary ml-2" x-text="ep.podcast_title"></span>
+              <p x-show="ep.error_message" class="text-2xs text-red mt-1 truncate" x-text="ep.error_message"></p>
             </div>
-            <span class="text-xs px-2 py-0.5 rounded bg-red-700 text-red-200 flex-shrink-0 ml-2">failed</span>
-          </a>
+            <span class="badge badge-red flex-shrink-0">failed</span>
+          </div>
         </template>
       </div>
     </div>
 
     <!-- Completed -->
     <div x-show="done.length > 0">
-      <h2 class="text-sm font-semibold text-gray-500 mb-2 flex items-center gap-2">
-        <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <polyline points="20 6 9 17 4 12"/>
-        </svg>
-        Completed (<span x-text="done.length"></span>)
-      </h2>
-      <div class="space-y-1">
+      <h2 class="section-title mb-3">Completed</h2>
+      <div class="flex flex-col gap-1">
         <template x-for="ep in done" :key="ep.id">
-          <a :href="'/episodes/' + ep.id" class="flex items-center justify-between p-2.5 bg-gray-800/30 border border-gray-700/30 rounded-lg hover:bg-gray-800/50 transition text-sm">
+          <a :href="'/episodes/' + ep.id" class="table-row" style="opacity:0.6;">
+            <div class="status-dot green flex-shrink-0"></div>
             <div class="min-w-0 flex-1">
-              <span class="font-medium truncate" x-text="ep.title"></span>
-              <span class="text-gray-500 ml-2" x-text="ep.podcast_title"></span>
+              <span class="text-sm font-medium truncate" x-text="ep.title"></span>
+              <span class="text-2xs text-secondary ml-2" x-text="ep.podcast_title"></span>
             </div>
-            <span class="text-xs px-2 py-0.5 rounded bg-gray-700 text-gray-300 flex-shrink-0 ml-2">completed</span>
+            <span class="badge badge-green flex-shrink-0">completed</span>
           </a>
         </template>
       </div>
     </div>
 
     <!-- Empty state -->
-    <div x-show="totalItems() === 0" class="text-center py-12 text-gray-500">
-      <p class="text-lg">No episodes yet</p>
-      <p class="text-sm mt-1">Add a podcast to get started.</p>
+    <div x-show="totalItems() === 0" class="empty-state">
+      <div class="empty-state-icon">&#x2693;</div>
+      <p class="font-bold">Queue is empty</p>
+      <p class="text-sm mt-1">No episodes are queued for processing.</p>
     </div>
   </div>
 </div>
@@ -132,28 +117,16 @@
 <script>
 function queueView() {
   return {
-    running: [],
-    queued: [],
-    error: [],
-    done: [],
-    counts: { running: 0, queued: 0, error: 0, done: 0 },
-    qm: {},
-    pollTimer: null,
-    processingAll: false,
+    running: [], queued: [], error: [], done: [],
+    counts: { running: 0, queued: 0, error: 0, done: 0, new_total: 0 },
+    qm: {}, pollTimer: null, processingAll: false,
 
-    totalItems() {
-      return this.running.length + this.queued.length + this.error.length + this.done.length;
-    },
+    totalItems() { return this.running.length + this.queued.length + this.error.length + this.done.length; },
 
     async processAllPending() {
       this.processingAll = true;
-      try {
-        const r = await fetch('/api/episodes/process-all-pending', { method: 'POST' });
-        const data = await r.json();
-        await this.loadQueue();
-      } catch (e) {
-        console.error('Failed to enqueue', e);
-      }
+      try { await fetch('/api/episodes/process-all-pending', { method: 'POST' }); await this.loadQueue(); }
+      catch (e) { console.error('Failed to enqueue', e); }
       this.processingAll = false;
     },
 
@@ -161,26 +134,14 @@ function queueView() {
       try {
         const r = await fetch('/api/queue');
         const data = await r.json();
-        this.running = data.running;
-        this.queued = data.queued;
-        this.error = data.error;
-        this.done = data.done;
-        this.counts = data.counts || data.total_counts || {};
-        this.qm = data.queue_manager || {};
-      } catch (e) {
-        console.error('Failed to load queue', e);
-      }
+        this.running = data.running; this.queued = data.queued; this.error = data.error; this.done = data.done;
+        this.counts = data.counts || {}; this.qm = data.queue_manager || {};
+      } catch (e) { console.error('Failed to load queue', e); }
     },
 
     startPolling() {
       this.loadQueue();
-      this.pollTimer = setInterval(() => {
-        this.loadQueue();
-        if (this.counts.running === 0 && this.counts.queued === 0) {
-          clearInterval(this.pollTimer);
-          this.pollTimer = null;
-        }
-      }, 2000);
+      this.pollTimer = setInterval(() => { this.loadQueue(); }, 2000);
     }
   };
 }

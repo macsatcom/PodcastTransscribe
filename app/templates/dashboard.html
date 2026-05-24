@@ -2,13 +2,18 @@
 {% block content %}
 <div x-data="dashboard()" x-init="init()">
   <div class="flex items-center justify-between mb-6">
-    <div class="flex gap-1.5">
-      <button @click="activeTab = 'podcasts'" class="text-sm px-4 py-2 rounded"
-              :class="activeTab === 'podcasts' ? 'bg-emerald-700 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'">Podcasts</button>
-      <button @click="activeTab = 'library'; selectFirstLibrary()" class="text-sm px-4 py-2 rounded"
-              :class="activeTab === 'library' ? 'bg-emerald-700 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'">Library</button>
+    <h1 class="page-title">Your Library</h1>
+    <button x-show="activeTab === 'podcasts'" @click="showAdd = true" class="btn btn-primary">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Add Podcast
+    </button>
+  </div>
+
+  <div class="mb-6">
+    <div class="tabs">
+      <button @click="activeTab = 'podcasts'" class="tab" :class="{ active: activeTab === 'podcasts' }">RSS Podcasts</button>
+      <button @click="activeTab = 'library'; selectFirstLibrary()" class="tab" :class="{ active: activeTab === 'library' }">Audiobookshelf</button>
     </div>
-    <button x-show="activeTab === 'podcasts'" @click="showAdd = true" class="bg-emerald-600 hover:bg-emerald-500 px-4 py-2 rounded text-sm font-medium">+ Add Podcast</button>
   </div>
 
   <!-- Podcasts Tab -->
@@ -19,101 +24,100 @@
   <!-- Library Tab -->
   <div x-show="activeTab === 'library'" x-cloak>
     <div class="mb-4">
-      <select x-model="selectedLibrary" @change="loadItems()"
-              class="bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm w-full max-w-xs">
+      <select x-model="selectedLibrary" @change="loadItems()" class="select">
         <option value="" disabled>Select library...</option>
         <template x-for="lib in filteredLibraries" :key="lib.id">
           <option :value="lib.id" x-text="lib.name"></option>
         </template>
       </select>
-      <p x-show="!loading && filteredLibraries.length === 0" class="text-xs text-gray-500 mt-1">
-        No libraries found for this media type. Check your Audiobookshelf connection in Admin.
+      <p x-show="!loading && filteredLibraries.length === 0" class="text-xs text-tertiary mt-1">
+        No libraries found. Configure your Audiobookshelf connection in Admin.
       </p>
     </div>
 
-    <div x-show="selectedIds.length > 0" class="mb-4 flex items-center gap-3 p-3 bg-gray-900 rounded-lg border border-gray-800">
-      <label class="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer">
-        <input type="checkbox" @change="selectAll()" :checked="selectedIds.length === items.length && items.length > 0"
-               class="rounded bg-gray-800 border-gray-600">
+    <div x-show="selectedIds.length > 0" class="mb-4 flex items-center gap-3" style="padding:12px 16px; background:var(--bg-elevated); border-radius:var(--radius-full);">
+      <label class="flex items-center gap-2 text-xs font-medium text-secondary cursor-pointer">
+        <input type="checkbox" @change="selectAll()" :checked="selectedIds.length === items.filter(i=>i.media_type!=='ebook').length && items.filter(i=>i.media_type!=='ebook').length > 0" class="checkbox">
         Select All
       </label>
-      <button @click="transcribeSelected()" :disabled="transcribing"
-              class="bg-emerald-700 hover:bg-emerald-600 px-3 py-1.5 rounded text-xs font-medium disabled:opacity-50"
+      <button @click="transcribeSelected()" :disabled="transcribing" class="btn btn-primary btn-sm"
               x-text="transcribing ? 'Enqueuing...' : 'Transcribe Selected (' + selectedIds.length + ')'">
       </button>
     </div>
 
-    <div x-show="loading" class="text-gray-500">Loading...</div>
+    <div x-show="loading" class="flex items-center gap-3 text-sm text-secondary" style="padding:32px 0;">
+      <div class="spinner"></div> Loading...
+    </div>
 
-    <div x-show="!loading" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-      <template x-for="item in items" :key="item.id">
-        <div class="relative p-4 bg-gray-900 rounded-lg border border-gray-800 hover:border-emerald-700 transition group">
+    <div x-show="!loading" class="card-grid">
+      <template x-for="(item, idx) in items" :key="item.id">
+        <div class="card" :style="'animation-delay:' + (idx * 0.04) + 's'" style="padding:16px;" class="card-reveal">
           <template x-if="item.media_type !== 'ebook'">
             <input type="checkbox" :checked="selectedIds.includes(item.id)"
                    @change="toggleSelect(item.id)"
-                   class="absolute top-2 left-2 z-10 rounded bg-gray-800 border-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
-                   :class="{ 'opacity-100': selectedIds.includes(item.id) }">
+                   class="checkbox absolute" style="top:12px; left:12px; z-index:10; opacity:0; transition:opacity 0.15s;"
+                   :style="selectedIds.includes(item.id) ? 'opacity:1' : ''"
+                   onmouseenter="this.style.opacity='1'" onmouseleave="if(!this.checked) this.style.opacity='0'">
           </template>
 
-          <a :href="'/library/' + item.id" class="block">
+          <a :href="'/library/' + item.id" style="display:block;">
             <div class="flex items-center gap-3">
               <template x-if="item.cover_url">
-                <img :src="item.cover_url" class="w-16 h-16 rounded flex-shrink-0 object-cover">
+                <img :src="item.cover_url" style="width:64px;height:64px;border-radius:6px;flex-shrink:0;object-fit:cover;box-shadow:0 4px 12px rgba(0,0,0,0.4);">
               </template>
               <template x-if="!item.cover_url">
-                <div class="w-16 h-16 rounded flex-shrink-0 bg-gray-800 flex items-center justify-center text-gray-600">
-                  <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
-                  </svg>
+                <div style="width:64px;height:64px;border-radius:6px;flex-shrink:0;background:var(--bg-elevated);display:flex;align-items:center;justify-content:center;">
+                  <svg width="24" height="24" fill="none" stroke="var(--text-tertiary)" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
                 </div>
               </template>
               <div class="min-w-0 flex-1">
-                <div class="font-medium truncate text-sm" x-text="item.title"></div>
-                <div class="text-xs text-gray-500 truncate" x-text="item.author || ''"></div>
-                <div class="text-xs text-gray-600 mt-0.5">
+                <div class="font-bold truncate" style="font-size:0.875rem;" x-text="item.title"></div>
+                <div class="text-xs text-secondary truncate mt-1" x-text="item.author || ''"></div>
+                <div class="text-2xs text-tertiary mt-1">
                   <span x-text="item.num_episodes + (item.media_type === 'podcast' ? ' episodes' : ' chapters')"></span>
                 </div>
               </div>
             </div>
           </a>
 
-          <div class="flex items-center justify-between mt-3 pt-3 border-t border-gray-800">
+          <div class="flex items-center justify-between mt-3" style="padding-top:12px;border-top:1px solid var(--border-subtle);">
             <div class="min-w-0 flex-1">
               <template x-if="item.media_type === 'ebook'">
-                <span class="text-xs px-2 py-0.5 rounded bg-gray-700 text-gray-400">e-book — not transcribable</span>
+                <span class="badge badge-gray">e-book &mdash; not transcribable</span>
               </template>
               <template x-if="item.media_type !== 'ebook'">
-                <span class="text-xs px-2 py-0.5 rounded font-medium"
+                <span class="badge badge-dot"
                       :class="{
-                        'bg-gray-700 text-gray-400': item.transcribe_status === 'none',
-                        'bg-yellow-700 text-yellow-200': item.transcribe_status === 'partial',
-                        'bg-blue-700 text-blue-200': item.transcribe_status === 'processing',
-                        'bg-emerald-700 text-emerald-200': item.transcribe_status === 'done',
+                        'badge-gray': item.transcribe_status === 'none',
+                        'badge-yellow': item.transcribe_status === 'partial',
+                        'badge-blue': item.transcribe_status === 'processing',
+                        'badge-green': item.transcribe_status === 'done',
                       }"
-                      x-text="item.transcribe_status === 'none' ? 'Not transcribed' : item.transcribe_status === 'partial' ? 'Partial' : item.transcribe_status === 'processing' ? 'Processing...' : 'Transcribed'">
+                      x-text="item.transcribe_status === 'none' ? 'Not transcribed' : item.transcribe_status === 'partial' ? 'Partial' : item.transcribe_status === 'processing' ? 'Processing' : 'Transcribed'">
                 </span>
               </template>
-              <div x-show="item.latest_model" class="text-xs text-gray-600 mt-1 truncate" x-text="item.latest_model + (item.total_processing_seconds ? ' \\u00b7 ' + Math.round(item.total_processing_seconds / 60) + 'm' : '')"></div>
+              <div x-show="item.latest_model" class="text-2xs text-tertiary mt-1" x-text="item.latest_model + (item.total_processing_seconds ? ' \u00b7 ' + Math.round(item.total_processing_seconds / 60) + 'm' : '')"></div>
             </div>
 
-            <label x-show="item.media_type === 'podcast'" class="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer" @click.prevent.stop>
-              <span>Auto</span>
-              <div class="relative inline-block w-8 h-4" @click="toggleAutoProcess(item)">
-                <div class="w-8 h-4 rounded-full transition-colors"
-                     :class="item.auto_process ? 'bg-emerald-600' : 'bg-gray-700'">
-                </div>
-                <div class="absolute top-0.5 left-0.5 w-3 h-3 rounded-full bg-white transition-transform"
-                     :class="item.auto_process ? 'translate-x-4' : ''">
-                </div>
-              </div>
-            </label>
+            <div x-show="item.media_type === 'podcast'" class="flex items-center gap-2" @click.prevent.stop>
+              <span class="text-2xs text-tertiary font-medium">Auto</span>
+              <div @click="toggleAutoProcess(item)" class="toggle" :class="{ active: item.auto_process }"></div>
+            </div>
           </div>
         </div>
       </template>
     </div>
 
-    <p x-show="!loading && items.length === 0 && selectedLibrary" class="text-gray-500">No items found in this library.</p>
-    <p x-show="!loading && !selectedLibrary" class="text-gray-500">Select a library to browse items.</p>
+    <div x-show="!loading && items.length === 0 && selectedLibrary" class="empty-state">
+      <div class="empty-state-icon">&#x1F4DA;</div>
+      <p class="font-bold">No items found</p>
+      <p class="text-sm mt-1">This library appears to be empty.</p>
+    </div>
+    <div x-show="!loading && !selectedLibrary" class="empty-state">
+      <div class="empty-state-icon">&#x1F4E1;</div>
+      <p class="font-bold">Select a library</p>
+      <p class="text-sm mt-1">Choose a library above to browse its content.</p>
+    </div>
   </div>
 </div>
 
@@ -184,11 +188,8 @@ function dashboard() {
 
     selectAll() {
       const selectable = this.items.filter(i => i.media_type !== 'ebook').map(i => i.id);
-      if (this.selectedIds.length === selectable.length) {
-        this.selectedIds = [];
-      } else {
-        this.selectedIds = selectable;
-      }
+      if (this.selectedIds.length === selectable.length) this.selectedIds = [];
+      else this.selectedIds = [...selectable];
     },
 
     async toggleAutoProcess(item) {
@@ -208,10 +209,7 @@ function dashboard() {
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({abs_item_ids: this.selectedIds}),
       });
-      if (r.ok) {
-        this.selectedIds = [];
-        await this.loadItems();
-      }
+      if (r.ok) { this.selectedIds = []; await this.loadItems(); }
       this.transcribing = false;
     },
 

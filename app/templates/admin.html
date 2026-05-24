@@ -1,144 +1,142 @@
 {% extends "base.html" %}
 {% block content %}
 <div x-data="adminView()" x-init="loadSettings()">
-  <h1 class="text-2xl font-bold mb-6">Admin / Settings</h1>
+  <h1 class="page-title mb-6">Settings</h1>
 
-  <div class="grid gap-6 max-w-lg">
-    <div class="p-4 bg-gray-900 rounded-lg border border-gray-800">
-      <h2 class="font-semibold mb-3">Audiobookshelf</h2>
-      <label class="block text-sm mb-1">URL</label>
-      <input type="text" x-model="absUrl" class="w-full p-2 rounded bg-gray-800 border border-gray-700 text-sm mb-3" placeholder="http://192.168.1.x:13378">
-      <label class="block text-sm mb-1">API Key</label>
-      <input type="password" x-model="absApiKey" class="w-full p-2 rounded bg-gray-800 border border-gray-700 text-sm mb-3" placeholder="eyJ...">
+  <div class="flex flex-col gap-6" style="max-width:560px;">
 
-      <button @click="saveAndTestAbs()" :disabled="savingAbs" class="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 px-4 py-2 rounded text-sm font-medium">
-        <span x-text="savingAbs ? 'Testing...' : 'Save & Test Connection'"></span>
-      </button>
-      <span x-text="absStatus" class="text-sm ml-2" :class="absOk ? 'text-emerald-400' : 'text-red-400'"></span>
-    </div>
-
-    <div class="p-4 bg-gray-900 rounded-lg border border-gray-800">
-      <h2 class="font-semibold mb-3">OpenRouter</h2>
-      <label class="block text-sm mb-1">API Key</label>
-      <input type="password" x-model="apiKey" class="w-full p-2 rounded bg-gray-800 border border-gray-700 text-sm mb-3" placeholder="sk-...">
-
-      <button @click="saveSettings()" :disabled="saving" class="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 px-4 py-2 rounded text-sm font-medium mb-4">
-        <span x-text="saving ? 'Saving...' : 'Save & Load Models'"></span>
-      </button>
-      <span x-text="saveStatus" class="text-sm ml-2"></span>
-
-      <template x-if="modelsLoaded">
+    <!-- Audiobookshelf -->
+    <div class="card" style="padding:20px;">
+      <h2 class="section-title mb-3">Audiobookshelf</h2>
+      <div class="flex flex-col gap-3">
         <div>
-          <label class="block text-sm mb-1 mt-3">Transcription Model</label>
-          <select x-model="transcriptionModel" class="w-full p-2 rounded bg-gray-800 border border-gray-700 text-sm mb-3">
-            <option value="">Select model...</option>
-            <optgroup label="Local">
-              <option value="local-whisper" :selected="transcriptionModel === 'local-whisper'">local-whisper (indbygget)</option>
-              <option value="self-hosted-whisper" :selected="transcriptionModel === 'self-hosted-whisper'">self-hosted-whisper (ekstern)</option>
-            </optgroup>
-            <optgroup label="OpenRouter Audio">
-              <template x-for="m in models.chat_audio" :key="m">
-                <option :value="m" x-text="m" :selected="m === transcriptionModel"></option>
-              </template>
-            </optgroup>
-            <optgroup label="OpenRouter Transcription">
-              <template x-for="m in models.transcription" :key="m">
-                <option :value="m" x-text="m" :selected="m === transcriptionModel"></option>
-              </template>
-            </optgroup>
-          </select>
-
-          <label class="block text-sm mb-1">Summarization Model</label>
-          <select x-model="summarizationModel" class="w-full p-2 rounded bg-gray-800 border border-gray-700 text-sm mb-3">
-            <option value="">Select model...</option>
-            <template x-for="m in models.chat" :key="m">
-              <option :value="m" x-text="m" :selected="m === summarizationModel"></option>
-            </template>
-          </select>
-
-          <label class="block text-sm mb-1">Embedding Model</label>
-          <select x-model="embeddingModel" class="w-full p-2 rounded bg-gray-800 border border-gray-700 text-sm mb-3">
-            <option value="">Select model...</option>
-            <template x-for="m in models.embedding" :key="m">
-              <option :value="m" x-text="m" :selected="m === embeddingModel"></option>
-            </template>
-          </select>
-
-          <label class="block text-sm mb-1 mt-3">Self-hosted Whisper URL (hvis du bruger self-hosted-whisper)</label>
-          <input type="text" x-model="selfHostedUrl" placeholder="http://192.168.1.100:9000"
-                 class="w-full p-2 rounded bg-gray-800 border border-gray-700 text-sm mb-3">
-
-          <button @click="saveModels()" class="bg-emerald-600 hover:bg-emerald-500 px-4 py-2 rounded text-sm font-medium">Save Model Choices</button>
-          <span x-text="modelSaveStatus" class="text-sm ml-2"></span>
+          <label class="text-xs font-medium text-secondary" style="display:block;margin-bottom:4px;">URL</label>
+          <input type="text" x-model="absUrl" class="input" placeholder="http://192.168.1.x:13378">
         </div>
-      </template>
-
-      <template x-if="!modelsLoaded && modelsLoading">
-        <p class="text-sm text-gray-400 mt-2">Loading models...</p>
-      </template>
-
-      <p x-show="loadError" x-text="loadError" class="text-sm text-red-400 mt-2"></p>
+        <div>
+          <label class="text-xs font-medium text-secondary" style="display:block;margin-bottom:4px;">API Key</label>
+          <input type="password" x-model="absApiKey" class="input" placeholder="eyJ...">
+        </div>
+        <div class="flex items-center gap-3">
+          <button @click="saveAndTestAbs()" :disabled="savingAbs" class="btn btn-primary" x-text="savingAbs ? 'Testing...' : 'Save & Test Connection'"></button>
+          <span x-text="absStatus" class="text-sm font-medium" :class="absOk ? 'text-accent' : 'text-red'"></span>
+        </div>
+      </div>
     </div>
 
-    <div class="mt-6 p-4 bg-gray-900 rounded-lg border border-gray-800">
-      <h2 class="font-semibold mb-3">Public Portals</h2>
-      <div x-data="portalManager()" x-init="loadPortals()">
-        <button @click="showForm = true" class="bg-emerald-600 hover:bg-emerald-500 px-3 py-1.5 rounded text-xs mb-4">+ New Portal</button>
+    <!-- OpenRouter -->
+    <div class="card" style="padding:20px;">
+      <h2 class="section-title mb-3">OpenRouter</h2>
+      <div class="flex flex-col gap-3">
+        <div>
+          <label class="text-xs font-medium text-secondary" style="display:block;margin-bottom:4px;">API Key</label>
+          <input type="password" x-model="apiKey" class="input" placeholder="sk-...">
+        </div>
+        <div class="flex items-center gap-3">
+          <button @click="saveSettings()" :disabled="saving" class="btn btn-primary" x-text="saving ? 'Saving...' : 'Save & Load Models'"></button>
+          <span x-text="saveStatus" class="text-sm font-medium text-accent"></span>
+        </div>
 
-        <div x-show="showForm" class="mb-4 p-3 bg-gray-800 rounded space-y-2">
-          <input x-model="form.title" placeholder="Title" class="w-full p-2 rounded bg-gray-700 border border-gray-600 text-sm">
-          <input x-model="form.port" type="number" placeholder="Port (e.g. 9001)" class="w-full p-2 rounded bg-gray-700 border border-gray-600 text-sm">
-          <input x-model="form.description" placeholder="Description" class="w-full p-2 rounded bg-gray-700 border border-gray-600 text-sm">
-          <select x-model="form.podcast_ids" multiple class="w-full p-2 rounded bg-gray-700 border border-gray-600 text-sm h-24">
+        <template x-if="modelsLoaded">
+          <div class="flex flex-col gap-3 mt-2">
+            <div>
+              <label class="text-xs font-medium text-secondary" style="display:block;margin-bottom:4px;">Transcription Model</label>
+              <select x-model="transcriptionModel" class="select w-full" style="border-radius:6px;">
+                <option value="">Select model...</option>
+                <optgroup label="Local">
+                  <option value="local-whisper">local-whisper (indbygget)</option>
+                  <option value="self-hosted-whisper">self-hosted-whisper (ekstern)</option>
+                </optgroup>
+                <optgroup label="OpenRouter Audio">
+                  <template x-for="m in models.chat_audio" :key="m">
+                    <option :value="m" x-text="m"></option>
+                  </template>
+                </optgroup>
+                <optgroup label="OpenRouter Transcription">
+                  <template x-for="m in models.transcription" :key="m">
+                    <option :value="m" x-text="m"></option>
+                  </template>
+                </optgroup>
+              </select>
+            </div>
+
+            <div>
+              <label class="text-xs font-medium text-secondary" style="display:block;margin-bottom:4px;">Summarization Model</label>
+              <select x-model="summarizationModel" class="select w-full" style="border-radius:6px;">
+                <option value="">Select model...</option>
+                <template x-for="m in models.chat" :key="m">
+                  <option :value="m" x-text="m"></option>
+                </template>
+              </select>
+            </div>
+
+            <div>
+              <label class="text-xs font-medium text-secondary" style="display:block;margin-bottom:4px;">Embedding Model</label>
+              <select x-model="embeddingModel" class="select w-full" style="border-radius:6px;">
+                <option value="">Select model...</option>
+                <template x-for="m in models.embedding" :key="m">
+                  <option :value="m" x-text="m"></option>
+                </template>
+              </select>
+            </div>
+
+            <div>
+              <label class="text-xs font-medium text-secondary" style="display:block;margin-bottom:4px;">Self-hosted Whisper URL</label>
+              <input type="text" x-model="selfHostedUrl" class="input" placeholder="http://192.168.1.100:9000">
+            </div>
+
+            <div class="flex items-center gap-3">
+              <button @click="saveModels()" class="btn btn-primary">Save Model Choices</button>
+              <span x-text="modelSaveStatus" class="text-sm font-medium text-accent"></span>
+            </div>
+          </div>
+        </template>
+
+        <template x-if="!modelsLoaded && modelsLoading">
+          <div class="flex items-center gap-3 text-sm text-secondary mt-2">
+            <div class="spinner"></div> Loading models...
+          </div>
+        </template>
+
+        <p x-show="loadError" x-text="loadError" class="text-sm text-red mt-2"></p>
+      </div>
+    </div>
+
+    <!-- Public Portals -->
+    <div class="card" style="padding:20px;">
+      <h2 class="section-title mb-3">Public Portals</h2>
+      <div x-data="portalManager()" x-init="loadPortals()">
+        <button @click="showForm = true" class="btn btn-primary btn-sm mb-4">+ New Portal</button>
+
+        <div x-show="showForm" class="flex flex-col gap-3 mb-4" style="padding:16px;background:var(--bg-elevated);border-radius:8px;">
+          <input x-model="form.title" placeholder="Title" class="input" style="border-radius:6px;">
+          <input x-model="form.port" type="number" placeholder="Port (e.g. 9001)" class="input" style="border-radius:6px;">
+          <input x-model="form.description" placeholder="Description" class="input" style="border-radius:6px;">
+          <select x-model="form.podcast_ids" multiple class="select" style="border-radius:6px;height:100px;">
             <template x-for="p in podcasts" :key="p.id">
               <option :value="p.id" x-text="p.title"></option>
             </template>
           </select>
           <div class="flex gap-2">
-            <button @click="createPortal()" class="bg-emerald-600 px-3 py-1 rounded text-xs">Create</button>
-            <button @click="showForm = false" class="text-xs text-gray-400">Cancel</button>
+            <button @click="createPortal()" class="btn btn-primary btn-sm">Create</button>
+            <button @click="showForm = false" class="btn btn-ghost btn-sm">Cancel</button>
           </div>
         </div>
 
         <template x-for="p in portals" :key="p.id">
-          <div class="p-2 bg-gray-800 rounded mb-2 text-sm">
-            <div class="flex items-center justify-between">
-              <div>
-                <div x-text="p.title" class="font-medium"></div>
-                <div class="text-xs text-gray-500" x-text="'Port ' + p.port + ' · ' + (p.podcast_ids?.length || 0) + ' podcasts'"></div>
-                <div x-show="p.background_image" class="text-xs text-gray-600" x-text="'BG: ' + p.background_image"></div>
-              </div>
-              <div class="flex items-center gap-2">
-                <span class="text-xs px-1.5 py-0.5 rounded" :class="p.running ? 'bg-emerald-700 text-emerald-200' : 'bg-gray-700 text-gray-400'" x-text="p.running ? 'Running' : 'Stopped'"></span>
-                <button @click="togglePortal(p)" class="text-xs" :class="p.running ? 'text-red-400' : 'text-emerald-400'" x-text="p.running ? 'Stop' : 'Start'"></button>
-                <button @click="deletePortal(p)" class="text-xs text-red-400">Delete</button>
-              </div>
+          <div class="table-row" style="padding:12px 16px;border-bottom:1px solid var(--border-subtle);">
+            <div class="min-w-0 flex-1">
+              <div x-text="p.title" class="font-bold text-sm"></div>
+              <div class="text-2xs text-tertiary" x-text="'Port ' + p.port + ' \u00b7 ' + (p.podcast_ids?.length || 0) + ' podcasts'"></div>
+              <div x-show="p.background_image" class="text-2xs text-tertiary" x-text="'BG: ' + p.background_image.split('/').pop()"></div>
             </div>
-            <div class="mt-2 space-y-2">
-              <div class="flex items-center gap-2">
-                <span class="text-xs text-gray-500 w-16">BG image:</span>
-                <input x-model="bgUrls[p.id]" placeholder="Image URL..." @keydown.enter="setImageUrl(p.id, 'background', bgUrls[p.id])"
-                       class="flex-1 p-1 rounded bg-gray-700 border border-gray-600 text-xs">
-                <form @submit.prevent="uploadImage(p, 'background')" class="flex items-center gap-1">
-                  <input type="file" accept="image/*" :data-portal="p.id" data-type="background" class="text-xs text-gray-400 w-32">
-                  <button type="submit" class="text-xs text-emerald-400 hover:text-emerald-300">Upload</button>
-                </form>
-                <span x-show="p.background_image" class="text-xs text-gray-600 truncate max-w-[120px]" x-text="p.background_image.split('/').pop()"></span>
-              </div>
-              <div class="flex items-center gap-2">
-                <span class="text-xs text-gray-500 w-16">Sec image:</span>
-                <input x-model="secUrls[p.id]" placeholder="Image URL..." @keydown.enter="setImageUrl(p.id, 'secondary', secUrls[p.id])"
-                       class="flex-1 p-1 rounded bg-gray-700 border border-gray-600 text-xs">
-                <form @submit.prevent="uploadImage(p, 'secondary')" class="flex items-center gap-1">
-                  <input type="file" accept="image/*" :data-portal="p.id" data-type="secondary" class="text-xs text-gray-400 w-32">
-                  <button type="submit" class="text-xs text-emerald-400 hover:text-emerald-300">Upload</button>
-                </form>
-                <span x-show="p.secondary_image" class="text-xs text-gray-600 truncate max-w-[120px]" x-text="p.secondary_image.split('/').pop()"></span>
-              </div>
+            <div class="flex items-center gap-2">
+              <span class="badge" :class="p.running ? 'badge-green' : 'badge-gray'" x-text="p.running ? 'Running' : 'Stopped'"></span>
+              <button @click="togglePortal(p)" class="btn btn-ghost btn-sm" :class="p.running ? 'text-red' : 'text-accent'" x-text="p.running ? 'Stop' : 'Start'"></button>
+              <button @click="deletePortal(p)" class="btn btn-ghost btn-sm text-red">Delete</button>
             </div>
           </div>
         </template>
-        <p x-show="portals.length === 0" class="text-xs text-gray-500">No portals yet.</p>
       </div>
     </div>
   </div>
@@ -147,97 +145,32 @@
 <script>
 function portalManager() {
   return {
-    showForm: false,
-    portals: [],
-    podcasts: [],
-    form: { title: '', port: 9001, description: '', podcast_ids: [] },
-    bgUrls: {},
-    secUrls: {},
-
+    showForm: false, portals: [], podcasts: [], form: { title: '', port: 9001, description: '', podcast_ids: [] },
     async loadPortals() {
-      const [pr, pdr] = await Promise.all([
-        fetch('/api/portals'),
-        fetch('/api/podcasts'),
-      ]);
-      this.portals = await pr.json();
-      this.podcasts = await pdr.json();
+      const [pr, pdr] = await Promise.all([fetch('/api/portals'), fetch('/api/podcasts')]);
+      this.portals = await pr.json(); this.podcasts = await pdr.json();
     },
-
     async createPortal() {
-      await fetch('/api/portals', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(this.form),
-      });
-      this.showForm = false;
-      this.form = { title: '', port: 9001, description: '', podcast_ids: [] };
-      await this.loadPortals();
+      await fetch('/api/portals', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(this.form) });
+      this.showForm = false; this.form = { title: '', port: 9001, description: '', podcast_ids: [] }; await this.loadPortals();
     },
-
-    async togglePortal(p) {
-      await fetch(`/api/portals/${p.id}/${p.running ? 'stop' : 'start'}`, { method: 'POST' });
-      await this.loadPortals();
-    },
-
-    async deletePortal(p) {
-      await fetch(`/api/portals/${p.id}`, { method: 'DELETE' });
-      await this.loadPortals();
-    },
-
-    async uploadImage(p, imageType) {
-      const input = document.querySelector(`input[data-portal="${p.id}"][data-type="${imageType}"]`);
-      if (!input || !input.files[0]) return;
-      const fd = new FormData();
-      fd.append('file', input.files[0]);
-      fd.append('image_type', imageType);
-      await fetch(`/api/portals/${p.id}/upload-image`, {
-        method: 'POST',
-        body: fd,
-      });
-      await this.loadPortals();
-    },
-
-    async setImageUrl(portalId, field, url) {
-      if (!url.trim()) return;
-      const key = field === 'background' ? 'background_image' : 'secondary_image';
-      await fetch(`/api/portals/${portalId}`, {
-        method: 'PUT',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({[key]: url}),
-      });
-      await this.loadPortals();
-    },
+    async togglePortal(p) { await fetch('/api/portals/' + p.id + '/' + (p.running ? 'stop' : 'start'), { method: 'POST' }); await this.loadPortals(); },
+    async deletePortal(p) { await fetch('/api/portals/' + p.id, { method: 'DELETE' }); await this.loadPortals(); },
   };
 }
-</script>
 
-<script>
 function adminView() {
   return {
-    apiKey: '',
-    transcriptionModel: '',
-    summarizationModel: '',
-    embeddingModel: '',
-    selfHostedUrl: '',
-    absUrl: '',
-    absApiKey: '',
-    absStatus: '',
-    absOk: false,
-    savingAbs: false,
-    saveStatus: '',
-    modelSaveStatus: '',
-    saving: false,
-    models: { transcription: [], chat: [], embedding: [] },
-    modelsLoaded: false,
-    modelsLoading: false,
-    loadError: '',
+    apiKey: '', transcriptionModel: '', summarizationModel: '', embeddingModel: '', selfHostedUrl: '',
+    absUrl: '', absApiKey: '', absStatus: '', absOk: false, savingAbs: false,
+    saveStatus: '', modelSaveStatus: '', saving: false,
+    models: { transcription: [], chat: [], embedding: [] }, modelsLoaded: false, modelsLoading: false, loadError: '',
 
     async loadSettings() {
       const r = await fetch('/api/settings');
       const data = await r.json();
       this.apiKey = data.openrouter_api_key || '';
       this.transcriptionModel = data.transcription_model || '';
-      this.chatAudioModel = data.chat_audio_model || '';
       this.summarizationModel = data.summarization_model || '';
       this.embeddingModel = data.embedding_model || '';
       this.selfHostedUrl = data.self_hosted_whisper_url || '';
@@ -247,68 +180,37 @@ function adminView() {
     },
 
     async saveAndTestAbs() {
-      this.savingAbs = true;
-      this.absStatus = '';
-      this.absOk = false;
+      this.savingAbs = true; this.absStatus = ''; this.absOk = false;
       const body = {};
       if (this.absUrl) body.abs_url = this.absUrl;
       if (this.absApiKey) body.abs_api_key = this.absApiKey;
-
-      await fetch('/api/settings', {
-        method: 'PUT',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(body),
-      });
-
+      await fetch('/api/settings', { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
       try {
-        const r = await fetch('/api/settings/abs/test');
-        const data = await r.json();
-        if (data.ok) {
-          this.absStatus = 'Connection OK';
-          this.absOk = true;
-        } else {
-          this.absStatus = 'Error: ' + (data.error || 'Unknown');
-        }
-      } catch (e) {
-        this.absStatus = 'Request failed';
-      }
+        const r = await fetch('/api/settings/abs/test'); const data = await r.json();
+        if (data.ok) { this.absStatus = 'Connection OK'; this.absOk = true; }
+        else { this.absStatus = 'Error: ' + (data.error || 'Unknown'); }
+      } catch (e) { this.absStatus = 'Request failed'; }
       this.savingAbs = false;
     },
 
     async saveSettings() {
-      this.saving = true;
-      this.saveStatus = '';
-      this.loadError = '';
+      this.saving = true; this.saveStatus = ''; this.loadError = '';
       const body = {};
       if (this.apiKey) body.openrouter_api_key = this.apiKey;
       if (this.selfHostedUrl) body.self_hosted_whisper_url = this.selfHostedUrl;
-
-      const r = await fetch('/api/settings', {
-        method: 'PUT',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(body),
-      });
-      if (r.ok) {
-        this.saveStatus = 'Saved!';
-        await this.fetchModels();
-        setTimeout(() => this.saveStatus = '', 2000);
-      } else {
-        this.saveStatus = 'Error saving';
-      }
+      const r = await fetch('/api/settings', { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
+      if (r.ok) { this.saveStatus = 'Saved!'; await this.fetchModels(); setTimeout(() => this.saveStatus = '', 2000); }
+      else { this.saveStatus = 'Error saving'; }
       this.saving = false;
     },
 
     async fetchModels() {
-      this.modelsLoading = true;
-      this.loadError = '';
+      this.modelsLoading = true; this.loadError = '';
       try {
         const r = await fetch('/api/settings/models');
         if (!r.ok) throw new Error('Failed to load models');
-        this.models = await r.json();
-        this.modelsLoaded = true;
-      } catch (e) {
-        this.loadError = 'Could not load models. Is your API key valid?';
-      }
+        this.models = await r.json(); this.modelsLoaded = true;
+      } catch (e) { this.loadError = 'Could not load models. Is your API key valid?'; }
       this.modelsLoading = false;
     },
 
@@ -318,18 +220,9 @@ function adminView() {
       if (this.summarizationModel) body.summarization_model = this.summarizationModel;
       if (this.embeddingModel) body.embedding_model = this.embeddingModel;
       if (this.selfHostedUrl) body.self_hosted_whisper_url = this.selfHostedUrl;
-
-      const r = await fetch('/api/settings', {
-        method: 'PUT',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(body),
-      });
-      if (r.ok) {
-        this.modelSaveStatus = 'Saved!';
-        setTimeout(() => this.modelSaveStatus = '', 2000);
-      } else {
-        this.modelSaveStatus = 'Error saving';
-      }
+      const r = await fetch('/api/settings', { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
+      if (r.ok) { this.modelSaveStatus = 'Saved!'; setTimeout(() => this.modelSaveStatus = '', 2000); }
+      else { this.modelSaveStatus = 'Error saving'; }
     }
   };
 }

@@ -1,153 +1,159 @@
 {% extends "base.html" %}
 {% block content %}
 <div x-data="podcastDetail()" x-init="loadPodcast()">
-  <a href="/" class="text-emerald-400 hover:text-emerald-300 text-sm mb-4 inline-block">&larr; Back</a>
+  <a href="/" class="text-sm font-medium text-secondary hover:text-primary mb-4 inline-block" style="display:flex;align-items:center;gap:4px;">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+    Back
+  </a>
 
-  <div x-show="loading" class="animate-pulse h-8 w-64 bg-gray-800 rounded mb-6"></div>
+  <div x-show="loading" class="flex items-center gap-4 mb-6">
+    <div class="skeleton" style="width:64px;height:64px;border-radius:6px;"></div>
+    <div class="flex-1 flex flex-col gap-2">
+      <div class="skeleton" style="width:60%;height:28px;"></div>
+      <div class="skeleton" style="width:30%;height:14px;"></div>
+    </div>
+  </div>
 
   <div x-show="!loading" class="mb-6">
     <div class="flex items-start justify-between">
       <div class="flex items-center gap-4">
         <template x-if="podcast.cover_url">
-          <img :src="podcast.cover_url" class="w-16 h-16 rounded flex-shrink-0">
+          <img :src="podcast.cover_url" style="width:64px;height:64px;border-radius:6px;flex-shrink:0;object-fit:cover;box-shadow:0 8px 24px rgba(0,0,0,0.5);">
         </template>
         <div>
-          <h1 class="text-2xl font-bold" x-text="podcast.title"></h1>
-          <p class="text-gray-400 text-sm" x-text="podcast.author || ''"></p>
-          <p x-show="podcast.description" class="text-gray-500 text-xs mt-1 line-clamp-2" x-text="podcast.description"></p>
+          <h1 class="page-title" x-text="podcast.title"></h1>
+          <p class="text-sm text-secondary" x-text="podcast.author || ''"></p>
+          <p x-show="podcast.description" class="text-xs text-tertiary mt-1 line-clamp-2" x-text="podcast.description"></p>
         </div>
       </div>
       <div class="flex items-center gap-2 flex-shrink-0">
-        <button @click="showEdit = true" class="text-xs text-gray-400 hover:text-white px-2 py-1 rounded bg-gray-800 hover:bg-gray-700">Edit</button>
-        <button @click="confirmDelete()" class="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded bg-gray-800 hover:bg-gray-700">Delete</button>
+        <button @click="showEdit = true" class="btn btn-ghost btn-sm">Edit</button>
+        <button @click="confirmDelete()" class="btn btn-ghost btn-sm text-red">Delete</button>
       </div>
     </div>
 
     <div class="flex items-center gap-4 mt-4">
-      <label class="flex items-center gap-2 text-sm">
-        <input type="checkbox" :checked="podcast.auto_process" @change="toggleAutoProcess()">
-        Auto-process
+      <label class="flex items-center gap-2 text-sm cursor-pointer">
+        <input type="checkbox" :checked="podcast.auto_process" @change="toggleAutoProcess()" class="checkbox">
+        <span class="font-medium">Auto-process</span>
       </label>
-      <button @click="pollNow()"
-              class="text-sm text-emerald-400 hover:text-emerald-300"
-              x-text="polling ? 'Polling...' : 'Poll Now'">
-      </button>
+      <button @click="pollNow()" class="btn btn-ghost btn-sm" x-text="polling ? 'Polling...' : 'Poll Now'"></button>
     </div>
-
-    <p x-show="pollResult" x-text="pollResult" class="text-xs text-gray-500 mt-1"></p>
+    <p x-show="pollResult" x-text="pollResult" class="text-xs text-tertiary mt-2"></p>
   </div>
 
-  <div x-show="showEdit" x-cloak class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-    <form class="bg-gray-900 p-6 rounded-lg border border-gray-700 w-full max-w-md" @submit.prevent="saveEdit()">
-      <h2 class="text-lg font-bold mb-4">Edit Podcast</h2>
-      <label class="block mb-2 text-sm">Title</label>
-      <input x-model="editTitle" required class="w-full mb-3 p-2 rounded bg-gray-800 border border-gray-700 text-sm">
-      <label class="block mb-2 text-sm">Author</label>
-      <input x-model="editAuthor" class="w-full mb-3 p-2 rounded bg-gray-800 border border-gray-700 text-sm">
-      <label class="block mb-2 text-sm">Description</label>
-      <textarea x-model="editDescription" rows="3" class="w-full mb-3 p-2 rounded bg-gray-800 border border-gray-700 text-sm"></textarea>
-      <label class="block mb-2 text-sm">Cover URL</label>
-      <input x-model="editCoverUrl" class="w-full mb-3 p-2 rounded bg-gray-800 border border-gray-700 text-sm">
-      <label class="block mb-2 text-sm">Language</label>
-      <input x-model="editLanguage" placeholder="e.g. en" class="w-full mb-4 p-2 rounded bg-gray-800 border border-gray-700 text-sm">
-      <div class="flex justify-end gap-2">
-        <button type="button" @click="showEdit = false" class="px-3 py-1.5 rounded bg-gray-700 text-sm">Cancel</button>
-        <button type="submit" class="px-3 py-1.5 rounded bg-emerald-600 text-sm" x-text="saving ? 'Saving...' : 'Save'"></button>
-      </div>
-    </form>
-  </div>
-
-  <div x-show="deleteTarget" x-cloak class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-    <div class="bg-gray-900 p-6 rounded-lg border border-gray-700 w-full max-w-sm">
-      <h2 class="text-lg font-bold mb-2">Delete Podcast?</h2>
-      <p class="text-sm text-gray-400 mb-4">This will permanently delete this podcast and all its episodes.</p>
-      <div class="flex justify-end gap-2">
-        <button @click="deleteTarget = false" class="px-3 py-1.5 rounded bg-gray-700 text-sm">Cancel</button>
-        <button @click="deletePodcast()" class="px-3 py-1.5 rounded bg-red-700 text-sm" x-text="deleting ? 'Deleting...' : 'Delete'"></button>
-      </div>
+  <!-- Edit Modal -->
+  <div x-show="showEdit" x-cloak class="modal-overlay">
+    <div class="modal" @click.outside="showEdit = false">
+      <h2 class="modal-title">Edit Podcast</h2>
+      <form @submit.prevent="saveEdit()" class="flex flex-col gap-3">
+        <div>
+          <label class="text-xs font-medium text-secondary" style="display:block;margin-bottom:4px;">Title</label>
+          <input x-model="editTitle" required class="input">
+        </div>
+        <div>
+          <label class="text-xs font-medium text-secondary" style="display:block;margin-bottom:4px;">Author</label>
+          <input x-model="editAuthor" class="input">
+        </div>
+        <div>
+          <label class="text-xs font-medium text-secondary" style="display:block;margin-bottom:4px;">Description</label>
+          <textarea x-model="editDescription" rows="3" class="input"></textarea>
+        </div>
+        <div>
+          <label class="text-xs font-medium text-secondary" style="display:block;margin-bottom:4px;">Cover URL</label>
+          <input x-model="editCoverUrl" class="input">
+        </div>
+        <div>
+          <label class="text-xs font-medium text-secondary" style="display:block;margin-bottom:4px;">Language</label>
+          <input x-model="editLanguage" placeholder="e.g. en" class="input">
+        </div>
+        <div class="flex justify-end gap-2 mt-2">
+          <button type="button" @click="showEdit = false" class="btn btn-ghost">Cancel</button>
+          <button type="submit" class="btn btn-primary" x-text="saving ? 'Saving...' : 'Save'"></button>
+        </div>
+      </form>
     </div>
   </div>
 
-  <div x-show="!loadingEpisodes" class="mb-4 space-y-3">
-    <input type="text" x-model="filterText" placeholder="Search episodes..."
-           class="w-full p-2 rounded bg-gray-800 border border-gray-700 text-sm">
+  <!-- Delete Modal -->
+  <div x-show="deleteTarget" x-cloak class="modal-overlay">
+    <div class="modal">
+      <h2 class="modal-title">Delete Podcast?</h2>
+      <p class="text-sm text-secondary mb-4">This will permanently delete this podcast and all its episodes.</p>
+      <div class="flex justify-end gap-2">
+        <button @click="deleteTarget = false" class="btn btn-ghost">Cancel</button>
+        <button @click="deletePodcast()" class="btn btn-danger" x-text="deleting ? 'Deleting...' : 'Delete'"></button>
+      </div>
+    </div>
+  </div>
 
-    <div class="flex flex-wrap gap-1.5">
-      <button @click="statusFilter = ''" class="text-xs px-2.5 py-1 rounded"
-              :class="statusFilter === '' ? 'bg-emerald-700 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'">All</button>
-      <button @click="statusFilter = 'new'" class="text-xs px-2.5 py-1 rounded"
-              :class="statusFilter === 'new' ? 'bg-emerald-700 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'">New</button>
-      <button @click="statusFilter = 'processing'" class="text-xs px-2.5 py-1 rounded"
-              :class="statusFilter === 'processing' ? 'bg-emerald-700 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'">Processing</button>
-      <button @click="statusFilter = 'ready'" class="text-xs px-2.5 py-1 rounded"
-              :class="statusFilter === 'ready' ? 'bg-emerald-700 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'">Ready</button>
-      <button @click="statusFilter = 'error'" class="text-xs px-2.5 py-1 rounded"
-              :class="statusFilter === 'error' ? 'bg-emerald-700 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'">Error</button>
+  <!-- Episodes -->
+  <div x-show="!loadingEpisodes" class="mb-4 flex flex-col gap-3">
+    <input type="text" x-model="filterText" placeholder="Search episodes..." class="input input-pill">
+
+    <div class="tabs">
+      <button @click="statusFilter = ''" class="tab" :class="{ active: statusFilter === '' }">All</button>
+      <button @click="statusFilter = 'new'" class="tab" :class="{ active: statusFilter === 'new' }">New</button>
+      <button @click="statusFilter = 'processing'" class="tab" :class="{ active: statusFilter === 'processing' }">Processing</button>
+      <button @click="statusFilter = 'ready'" class="tab" :class="{ active: statusFilter === 'ready' }">Ready</button>
+      <button @click="statusFilter = 'error'" class="tab" :class="{ active: statusFilter === 'error' }">Error</button>
     </div>
 
     <div class="flex items-center gap-3">
-      <label class="flex items-center gap-1.5 text-xs text-gray-500">
-        <input type="checkbox" @change="selectAll = !selectAll; toggleSelectAll()">
-        Select all
+      <label class="flex items-center gap-2 text-xs font-medium text-secondary cursor-pointer">
+        <input type="checkbox" @change="selectAll = !selectAll; toggleSelectAll()" class="checkbox"> Select all
       </label>
       <button @click="processSelected()" x-show="selectedIds.length > 0"
-              class="bg-emerald-700 hover:bg-emerald-600 px-3 py-1.5 rounded text-xs font-medium"
-              x-text="'Process Selected (' + selectedIds.length + ')'">
+              class="btn btn-primary btn-sm" x-text="'Process Selected (' + selectedIds.length + ')'">
       </button>
       <button @click="processAll()" x-text="processingAll ? 'Processing...' : 'Process All Pending'"
-              class="bg-emerald-800 hover:bg-emerald-700 px-3 py-1.5 rounded text-xs font-medium disabled:opacity-50"
-              :disabled="processingAll">
+              class="btn btn-secondary btn-sm" :disabled="processingAll">
       </button>
-      <span x-text="filteredEpisodes.length + ' of ' + episodes.length + ' episodes'" class="text-xs text-gray-500"></span>
-      <span x-show="processAllResult" x-text="processAllResult" class="text-xs text-gray-500"></span>
+      <span class="text-xs text-tertiary" x-text="filteredEpisodes.length + ' of ' + episodes.length"></span>
+      <span x-show="processAllResult" x-text="processAllResult" class="text-xs text-accent"></span>
     </div>
   </div>
 
-  <div class="space-y-2">
-    <template x-if="loadingEpisodes">
-      <p class="text-gray-500">Loading episodes...</p>
-    </template>
+  <div class="flex flex-col gap-1">
+    <div x-show="loadingEpisodes" class="flex items-center gap-3 text-sm text-secondary" style="padding:24px 0;">
+      <div class="spinner"></div> Loading episodes...
+    </div>
     <template x-for="ep in filteredEpisodes" :key="ep.id">
-      <div class="flex items-start justify-between p-3 bg-gray-900 rounded-lg border border-gray-800 hover:border-emerald-700 transition gap-3">
-        <div class="flex items-start gap-2 min-w-0 flex-1">
-          <input type="checkbox" :checked="selectedIds.includes(ep.id)" @change="toggleSelect(ep.id)"
-                 class="mt-1 rounded bg-gray-800 border-gray-600 flex-shrink-0">
-          <a :href="'/episodes/' + ep.id" class="min-w-0 flex-1">
-            <div class="text-sm font-medium truncate" x-text="ep.title"></div>
-            <div class="text-xs text-gray-500">
-              <span x-text="ep.published_at ? new Date(ep.published_at).toLocaleDateString() : ''"></span>
-              <span x-show="ep.duration_seconds" x-text="' · ' + Math.floor(ep.duration_seconds / 60) + ' min'"></span>
-            </div>
-            <div x-show="ep.model_used" class="text-xs text-gray-600" x-text="ep.model_used + (ep.processing_seconds ? ' · ' + Math.round(ep.processing_seconds / 60) + ' min' : '') + (ep.cost ? ' · $' + ep.cost.toFixed(4) : '')"></div>
-            <div x-show="ep.description" class="text-xs text-gray-400 mt-1 line-clamp-2" x-text="ep.description"></div>
-          </a>
-        </div>
+      <div class="table-row">
+        <input type="checkbox" :checked="selectedIds.includes(ep.id)" @change="toggleSelect(ep.id)" class="checkbox flex-shrink-0">
+        <a :href="'/episodes/' + ep.id" class="min-w-0 flex-1" style="display:block;">
+          <div class="text-sm font-medium truncate" x-text="ep.title"></div>
+          <div class="flex items-center gap-3 mt-1">
+            <span class="text-2xs text-tertiary" x-text="ep.published_at ? new Date(ep.published_at).toLocaleDateString() : ''"></span>
+            <span class="text-2xs text-tertiary" x-show="ep.duration_seconds" x-text="Math.floor(ep.duration_seconds / 60) + 'm'"></span>
+          </div>
+          <div x-show="ep.model_used" class="text-2xs text-tertiary mt-1" x-text="ep.model_used + (ep.processing_seconds ? ' \u00b7 ' + Math.round(ep.processing_seconds / 60) + 'm' : '') + (ep.cost ? ' \u00b7 $' + ep.cost.toFixed(4) : '')"></div>
+          <div x-show="ep.description" class="text-2xs text-tertiary mt-1 line-clamp-2" x-text="ep.description"></div>
+        </a>
         <div class="flex items-center gap-2 flex-shrink-0">
-          <span class="text-xs px-2 py-0.5 rounded"
+          <span class="badge"
                 :class="{
-                  'bg-gray-700 text-gray-300': ep.status === 'new',
-                  'bg-blue-700 text-blue-200': ['downloading','transcribing','summarizing','indexing','processing'].includes(ep.status),
-                  'bg-emerald-700 text-emerald-200': ep.status === 'ready',
-                  'bg-red-700 text-red-200': ep.status === 'error',
+                  'badge-gray': ep.status === 'new',
+                  'badge-blue badge-dot': ['downloading','transcribing','summarizing','indexing','processing'].includes(ep.status),
+                  'badge-green': ep.status === 'ready',
+                  'badge-red': ep.status === 'error',
                 }"
                 x-text="ep.status">
           </span>
           <button x-show="ep.status === 'new' || ep.status === 'error'"
                   @click="processEpisode(ep)"
-                  x-text="ep.processing ? '...' : 'Process'"
-                  :disabled="ep.processing === true"
-                  class="text-xs text-emerald-400 hover:text-emerald-300 disabled:text-gray-600">
+                  class="btn btn-primary btn-sm" x-text="ep.processing ? '...' : 'Process'"
+                  :disabled="ep.processing === true">
           </button>
-          <button x-show="['downloading','transcribing','summarizing','indexing','processing'].includes(ep.status)"
+          <button x-show="['downloading','transcribing','summarizing','indexing','processing'].includes(ep.status) || ep.status === 'error'"
                   @click="resetEpisode(ep)"
-                  class="text-xs text-yellow-400 hover:text-yellow-300">Reset</button>
-          <button x-show="ep.status === 'error'"
-                  @click="resetEpisode(ep)"
-                  class="text-xs text-yellow-400 hover:text-yellow-300">Reset &amp; Retry</button>
+                  class="btn btn-ghost btn-sm" style="color:#ffa42b;">Reset</button>
         </div>
       </div>
     </template>
-    <p x-show="!loadingEpisodes && filteredEpisodes.length === 0" class="text-gray-500">No episodes match your filter.</p>
+    <div x-show="!loadingEpisodes && filteredEpisodes.length === 0" class="empty-state">
+      <p class="font-medium text-sm">No episodes match your filter</p>
+    </div>
   </div>
 </div>
 
@@ -155,36 +161,20 @@
 function podcastDetail() {
   return {
     podcastId: '{{ podcast_id }}',
-    loading: true,
-    loadingEpisodes: true,
-    podcast: {},
-    episodes: [],
-    polling: false,
-    pollResult: '',
-    processingAll: false,
-    processAllResult: '',
-    filterText: '',
-    statusFilter: '',
-    selectedIds: [],
-    selectAll: false,
-    showEdit: false,
-    editTitle: '',
-    editAuthor: '',
-    editDescription: '',
-    editCoverUrl: '',
-    editLanguage: '',
-    saving: false,
-    deleteTarget: false,
-    deleting: false,
+    loading: true, loadingEpisodes: true,
+    podcast: {}, episodes: [],
+    polling: false, pollResult: '',
+    processingAll: false, processAllResult: '',
+    filterText: '', statusFilter: '',
+    selectedIds: [], selectAll: false,
+    showEdit: false, editTitle: '', editAuthor: '', editDescription: '', editCoverUrl: '', editLanguage: '',
+    saving: false, deleteTarget: false, deleting: false,
 
     get filteredEpisodes() {
       let list = this.episodes;
       if (this.filterText) {
         const q = this.filterText.toLowerCase();
-        list = list.filter(e =>
-          (e.title && e.title.toLowerCase().includes(q)) ||
-          (e.description && e.description.toLowerCase().includes(q))
-        );
+        list = list.filter(e => (e.title && e.title.toLowerCase().includes(q)) || (e.description && e.description.toLowerCase().includes(q)));
       }
       if (this.statusFilter) {
         list = list.filter(e => {
@@ -195,30 +185,20 @@ function podcastDetail() {
       return list;
     },
 
-    toggleSelect(id) {
-      const idx = this.selectedIds.indexOf(id);
-      if (idx > -1) this.selectedIds.splice(idx, 1);
-      else this.selectedIds.push(id);
-    },
+    toggleSelect(id) { const idx = this.selectedIds.indexOf(id); if (idx > -1) this.selectedIds.splice(idx, 1); else this.selectedIds.push(id); },
 
     toggleSelectAll() {
-      if (this.selectAll) {
-        this.selectedIds = this.filteredEpisodes.map(e => e.id);
-      } else {
-        this.selectedIds = [];
-      }
+      if (this.selectAll) this.selectedIds = this.filteredEpisodes.map(e => e.id);
+      else this.selectedIds = [];
     },
 
     async loadPodcast() {
       const r = await fetch('/api/podcasts/' + this.podcastId);
       this.podcast = await r.json();
-      this.editTitle = this.podcast.title || '';
-      this.editAuthor = this.podcast.author || '';
-      this.editDescription = this.podcast.description || '';
-      this.editCoverUrl = this.podcast.cover_url || '';
+      this.editTitle = this.podcast.title || ''; this.editAuthor = this.podcast.author || '';
+      this.editDescription = this.podcast.description || ''; this.editCoverUrl = this.podcast.cover_url || '';
       this.editLanguage = this.podcast.language || '';
-      this.loading = false;
-      await this.loadEpisodes();
+      this.loading = false; await this.loadEpisodes();
     },
 
     async loadEpisodes() {
@@ -238,17 +218,11 @@ function podcastDetail() {
     },
 
     async pollNow() {
-      this.polling = true;
-      this.pollResult = '';
+      this.polling = true; this.pollResult = '';
       const r = await fetch('/api/podcasts/' + this.podcastId + '/poll', { method: 'POST' });
-      if (r.ok) {
-        this.pollResult = 'Polled! New episodes will appear shortly.';
-        await this.loadEpisodes();
-      } else {
-        this.pollResult = 'Poll failed.';
-      }
-      this.polling = false;
-      setTimeout(() => this.pollResult = '', 3000);
+      if (r.ok) { this.pollResult = 'Polled!'; await this.loadEpisodes(); }
+      else { this.pollResult = 'Poll failed.'; }
+      this.polling = false; setTimeout(() => this.pollResult = '', 3000);
     },
 
     async saveEdit() {
@@ -256,25 +230,13 @@ function podcastDetail() {
       const r = await fetch('/api/podcasts/' + this.podcastId, {
         method: 'PATCH',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-          title: this.editTitle,
-          author: this.editAuthor,
-          description: this.editDescription,
-          cover_url: this.editCoverUrl,
-          language: this.editLanguage,
-        }),
+        body: JSON.stringify({title: this.editTitle, author: this.editAuthor, description: this.editDescription, cover_url: this.editCoverUrl, language: this.editLanguage}),
       });
-      if (r.ok) {
-        const updated = await r.json();
-        Object.assign(this.podcast, updated);
-      }
-      this.showEdit = false;
-      this.saving = false;
+      if (r.ok) { const updated = await r.json(); Object.assign(this.podcast, updated); }
+      this.showEdit = false; this.saving = false;
     },
 
-    confirmDelete() {
-      this.deleteTarget = true;
-    },
+    confirmDelete() { this.deleteTarget = true; },
 
     async deletePodcast() {
       this.deleting = true;
@@ -286,69 +248,44 @@ function podcastDetail() {
     async resetEpisode(ep) {
       ep.processing = true;
       await fetch('/api/episodes/' + ep.id + '/reset', { method: 'POST' });
-      ep.status = 'new';
-      ep.processing = false;
+      ep.status = 'new'; ep.processing = false;
     },
 
     async processEpisode(ep) {
       ep.processing = true;
-      try {
-        await fetch('/api/episodes/' + ep.id + '/process', { method: 'POST' });
-      } catch (e) {
-        ep.status = 'error';
-        ep.error_message = 'Failed to start processing';
-        ep.processing = false;
-        return;
-      }
+      try { await fetch('/api/episodes/' + ep.id + '/process', { method: 'POST' }); }
+      catch (e) { ep.status = 'error'; ep.error_message = 'Failed to start processing'; ep.processing = false; return; }
       ep.status = 'processing';
       const poll = setInterval(async () => {
         try {
           const r = await fetch('/api/episodes/' + ep.id);
           const data = await r.json();
-          ep.status = data.status;
-          ep.error_message = data.error_message;
-          if (!['downloading','transcribing','summarizing','indexing','processing'].includes(data.status || '')) {
-            clearInterval(poll);
-            ep.processing = false;
-          }
-        } catch (e) {
-          clearInterval(poll);
-          ep.processing = false;
-        }
+          ep.status = data.status; ep.error_message = data.error_message;
+          if (!['downloading','transcribing','summarizing','indexing','processing'].includes(data.status || '')) { clearInterval(poll); ep.processing = false; }
+        } catch (e) { clearInterval(poll); ep.processing = false; }
       }, 3000);
     },
 
     async processSelected() {
-      const ids = [...this.selectedIds];
-      this.selectedIds = [];
+      const ids = [...this.selectedIds]; this.selectedIds = [];
       try {
-        const r = await fetch('/api/episodes/process-batch', {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({ids}),
-        });
+        const r = await fetch('/api/episodes/process-batch', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ids}) });
         const data = await r.json();
-        this.processAllResult = `Enqueued ${data.count || ids.length} episode(s).`;
+        this.processAllResult = 'Enqueued ' + (data.count || ids.length) + ' episode(s).';
         await this.loadEpisodes();
-      } catch (e) {
-        this.processAllResult = 'Batch processing failed.';
-      }
+      } catch (e) { this.processAllResult = 'Batch processing failed.'; }
       setTimeout(() => this.processAllResult = '', 4000);
     },
 
     async processAll() {
-      this.processingAll = true;
-      this.processAllResult = '';
+      this.processingAll = true; this.processAllResult = '';
       try {
         const r = await fetch('/api/episodes/process-all-pending', { method: 'POST' });
         const data = await r.json();
-        this.processAllResult = `Enqueued ${data.count || 0} episode(s).`;
+        this.processAllResult = 'Enqueued ' + (data.count || 0) + ' episode(s).';
         await this.loadEpisodes();
-      } catch (e) {
-        this.processAllResult = 'Batch processing failed.';
-      }
-      this.processingAll = false;
-      setTimeout(() => this.processAllResult = '', 6000);
+      } catch (e) { this.processAllResult = 'Batch processing failed.'; }
+      this.processingAll = false; setTimeout(() => this.processAllResult = '', 6000);
     }
   };
 }

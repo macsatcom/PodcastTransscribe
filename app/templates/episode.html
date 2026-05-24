@@ -1,43 +1,56 @@
 {% extends "base.html" %}
 {% block content %}
 <div x-data="episodeView()" x-init="loadEpisode()">
-  <a href="/" class="text-emerald-400 hover:text-emerald-300 text-sm mb-4 inline-block">&larr; Back</a>
+  <a href="/" class="text-sm font-medium text-secondary hover:text-primary mb-4 inline-block" style="display:flex;align-items:center;gap:4px;">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+    Back
+  </a>
 
-  <div x-show="loading" class="animate-pulse h-8 w-64 bg-gray-800 rounded mb-2"></div>
+  <div x-show="loading" style="height:32px;" class="skeleton mb-2" :style="{width: Math.random()*200+150+'px'}"></div>
 
   <div x-show="!loading" class="mb-6">
-    <h1 class="text-2xl font-bold" x-text="episode.title"></h1>
-    <p class="text-gray-400 text-sm mt-1" x-text="(episode.published_at || '') + ' · ' + episode.status"></p>
-    <p x-show="episode.error_message" class="text-red-400 text-sm mt-1" x-text="episode.error_message"></p>
+    <h1 class="page-title" x-text="episode.title"></h1>
+    <div class="flex items-center gap-3 mt-2">
+      <span class="text-sm text-secondary" x-text="(episode.published_at ? new Date(episode.published_at).toLocaleDateString('da-DK', {day:'numeric', month:'short', year:'numeric'}) : '') + ' \u00b7 ' + episode.status"></span>
+      <span x-show="episode.processing_seconds" class="badge badge-gray" x-text="Math.round(episode.processing_seconds / 60) + 'm'"></span>
+      <span x-show="episode.cost" class="badge badge-gray" x-text="'$' + episode.cost.toFixed(4)"></span>
+    </div>
+    <p x-show="episode.error_message" class="text-sm text-red mt-2" x-text="episode.error_message"></p>
     <button x-show="episode.status === 'new' || episode.status === 'error'"
             @click="process()" :disabled="processing"
-            class="mt-3 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 px-4 py-2 rounded text-sm"
-            x-text="processing ? 'Processing...' : (episode.status === 'error' ? 'Retry' : 'Process Now')">
+            class="btn btn-primary mt-4" x-text="processing ? 'Processing...' : (episode.status === 'error' ? 'Retry' : 'Process Now')">
     </button>
   </div>
 
-  <div x-show="!loading && transcript && transcript.summary" class="mb-6 p-4 bg-gray-900 rounded-lg border border-gray-800">
-    <h2 class="text-sm font-semibold text-emerald-400 mb-2">Summary</h2>
-    <div class="text-sm leading-relaxed" x-text="transcript.summary"></div>
+  <div x-show="!loading && transcript && transcript.summary" class="card mb-6" style="padding:20px;">
+    <h2 class="section-title mb-3">Summary</h2>
+    <div class="text-sm" style="line-height:1.7;" x-text="transcript.summary"></div>
   </div>
 
-  <div x-show="!loading && transcript && transcript.full_text" class="text-sm leading-relaxed whitespace-pre-wrap"
-       x-html="highlightedText">
+  <div x-show="!loading && transcript && transcript.full_text" class="text-sm" style="line-height:1.8;white-space:pre-wrap;" x-html="highlightedText">
   </div>
 
-  <p x-show="!loading && episode.status === 'ready' && !transcript" class="text-gray-500">No transcript available.</p>
-  <p x-show="!loading && episode.status === 'new' && !transcript" class="text-gray-500">Episode not yet processed.</p>
-  <p x-show="!loading && episode.status === 'processing'" class="text-gray-500">Processing episode...</p>
+  <div x-show="!loading && episode.status === 'ready' && !transcript" class="empty-state">
+    <div class="empty-state-icon">&#x1F4DD;</div>
+    <p class="font-bold">No transcript available</p>
+  </div>
+  <div x-show="!loading && episode.status === 'new' && !transcript" class="empty-state">
+    <div class="empty-state-icon">&#x23F3;</div>
+    <p class="font-bold">Not yet processed</p>
+    <p class="text-sm mt-1">Click "Process Now" to transcribe this episode.</p>
+  </div>
+  <div x-show="!loading && ['downloading','transcribing','summarizing','indexing'].includes(episode.status)" class="empty-state">
+    <div class="spinner" style="width:32px;height:32px;margin-bottom:8px;"></div>
+    <p class="font-bold pulse" x-text="'Processing... (' + episode.status + ')'"></p>
+  </div>
 </div>
 
 <script>
 function episodeView() {
   return {
     episodeId: '{{ episode_id }}',
-    loading: true,
-    processing: false,
-    episode: {},
-    transcript: null,
+    loading: true, processing: false,
+    episode: {}, transcript: null,
 
     async loadEpisode() {
       this.loading = true;
@@ -56,7 +69,7 @@ function episodeView() {
       if (highlight) {
         text = text.replace(
           new RegExp('(' + highlight.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi'),
-          '<mark class="bg-emerald-700 text-emerald-200 px-0.5 rounded">$1</mark>'
+          '<mark>$1</mark>'
         );
       }
       return text;
@@ -71,9 +84,8 @@ function episodeView() {
         const data = await r.json();
         this.episode = data;
         this.transcript = data.transcript || null;
-        if (data.status !== 'processing' && data.status !== 'downloading' && data.status !== 'transcribing' && data.status !== 'summarizing' && data.status !== 'indexing') {
-          clearInterval(poll);
-          this.processing = false;
+        if (!['processing','downloading','transcribing','summarizing','indexing'].includes(data.status || '')) {
+          clearInterval(poll); this.processing = false;
         }
       }, 2000);
     }
