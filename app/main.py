@@ -28,6 +28,14 @@ async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
         await conn.run_sync(Base.metadata.create_all)
+        await conn.execute(text("ALTER TABLE podcasts ADD COLUMN IF NOT EXISTS abs_item_id TEXT"))
+        await conn.execute(text("ALTER TABLE podcasts ADD COLUMN IF NOT EXISTS media_type TEXT"))
+        await conn.execute(text("ALTER TABLE podcasts ADD COLUMN IF NOT EXISTS narrator TEXT"))
+        await conn.execute(text("ALTER TABLE episodes ADD COLUMN IF NOT EXISTS abs_item_id TEXT"))
+        await conn.execute(text("ALTER TABLE episodes ADD COLUMN IF NOT EXISTS abs_episode_id TEXT"))
+        await conn.execute(text("ALTER TABLE episodes ADD COLUMN IF NOT EXISTS chapter_index INTEGER"))
+        await conn.execute(text("ALTER TABLE episodes ADD COLUMN IF NOT EXISTS media_type TEXT"))
+        await conn.execute(text("ALTER TABLE episodes ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW()"))
 
     await episode_queue.start()
 
