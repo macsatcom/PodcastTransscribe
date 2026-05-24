@@ -10,6 +10,7 @@ from app.config import settings
 from app.database import async_session
 from app.models.episode import Episode
 from app.models.transcript import Transcript, TranscriptChunk
+from app.models.setting import Setting
 from app.services.transcribe import transcribe_audio
 from app.services.summarize import generate_summary
 from app.services.embedder import chunk_text, embed_chunks
@@ -47,7 +48,12 @@ async def process_episode(episode_id):
                 await session.commit()
 
                 if getattr(episode, "abs_item_id", None):
-                    adapter = ABSSourceAdapter()
+                    abs_url = (await session.get(Setting, "abs_url"))
+                    abs_key = (await session.get(Setting, "abs_api_key"))
+                    adapter = ABSSourceAdapter(
+                        abs_url=abs_url.value if abs_url else "",
+                        api_key=abs_key.value if abs_key else "",
+                    )
                 else:
                     adapter = RSSSourceAdapter()
                 audio_data = (await _run_with_timeout(adapter.fetch_audio(episode.audio_url), "download")).read()
@@ -64,7 +70,7 @@ async def process_episode(episode_id):
                 logger.info("EPISODE %s: transcribe took %.0fs", episode_id, t2 - t1)
 
                 da_chars = sum(1 for c in full_text if c in "\u00e6\u00f8\u00e5\u00c6\u00d8\u00c5")
-                language = "danish" if da_chars > max(5, len(full_text) * 0.02) else "english"
+                language = "danish" if da_chars > max(3, len(full_text) * 0.005) else "english"
 
                 result = await session.execute(
                     select(Transcript).where(Transcript.episode_id == episode.id)

@@ -193,14 +193,15 @@ class OpenRouterClient:
         return {"text": choices[0].get("message", {}).get("content", ""), "segments": None, "cost": cost}
 
     async def summarize(self, model: str, transcript: str, language: str) -> tuple[str, float]:
+        lang_instruction = f"You MUST write the summary in {language}."
         prompt = (
-            f"Summarize this podcast episode in {language or 'the same language as the transcript'} "
+            f"{lang_instruction} Summarize this podcast episode "
             f"in 3-5 paragraphs:\n\n{transcript}"
         )
         result = await self._post("chat/completions", {
             "model": model,
             "messages": [
-                {"role": "system", "content": "You are a helpful assistant that summarizes podcast episodes."},
+                {"role": "system", "content": f"You are a helpful assistant that summarizes podcast episodes. Always respond in {language}."},
                 {"role": "user", "content": prompt},
             ],
         })

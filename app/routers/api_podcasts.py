@@ -21,8 +21,16 @@ class CreatePodcastRequest(BaseModel):
 
 
 @router.get("")
-async def list_podcasts(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Podcast).order_by(Podcast.title))
+async def list_podcasts(
+    source_type: str | None = None,
+    db: AsyncSession = Depends(get_db),
+):
+    query = select(Podcast)
+    if source_type:
+        query = query.join(Podcast.source_configs).where(
+            SourceConfig.source_type == source_type
+        )
+    result = await db.execute(query.order_by(Podcast.title))
     podcasts = result.scalars().all()
 
     counts_q = select(

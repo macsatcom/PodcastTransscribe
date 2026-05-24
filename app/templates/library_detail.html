@@ -67,21 +67,49 @@
 
     <div class="flex flex-col gap-1">
       <template x-for="ep in filteredEpisodes" :key="ep.our_episode_id || ep.id || Math.random()">
-        <div class="table-row">
+        <div class="flex items-start gap-3" style="padding:12px 16px;background:var(--bg-surface);border-radius:6px;border:1px solid var(--border-subtle);">
           <input type="checkbox" :checked="selectedIds.includes(ep.our_episode_id)"
                  @change="selectedIds.includes(ep.our_episode_id) ? selectedIds.splice(selectedIds.indexOf(ep.our_episode_id), 1) : selectedIds.push(ep.our_episode_id)"
-                 class="checkbox flex-shrink-0" :disabled="!ep.our_episode_id">
+                 class="checkbox flex-shrink-0 mt-1" :disabled="!ep.our_episode_id">
           <div class="min-w-0 flex-1">
             <template x-if="ep.status === 'ready' && ep.our_episode_id">
-              <a :href="'/episodes/' + ep.our_episode_id" class="text-sm font-medium truncate link-underline" style="display:inline;" x-text="ep.title"></a>
+              <a :href="'/episodes/' + ep.our_episode_id" class="text-sm font-medium truncate" style="display:inline;" x-text="ep.title"></a>
             </template>
             <template x-if="ep.status !== 'ready' || !ep.our_episode_id">
               <span class="text-sm font-medium truncate" x-text="ep.title"></span>
             </template>
-            <div x-show="ep.duration || ep.published_at" class="text-2xs text-tertiary mt-1 flex gap-3">
+            <div x-show="ep.duration || ep.published_at" style="font-size:0.75rem;color:var(--text-tertiary);margin-top:2px;">
               <span x-show="ep.published_at" x-text="new Date(ep.published_at).toLocaleDateString('da-DK', {day:'numeric', month:'short', year:'numeric'})"></span>
-              <span x-show="ep.duration" x-text="formatDuration(ep.duration)"></span>
+              <span x-show="ep.duration" x-text="' · ' + formatDuration(ep.duration)"></span>
             </div>
+            <div x-show="ep.model_used" style="font-size:0.75rem;color:var(--text-tertiary);margin-top:1px;" x-text="ep.model_used + (ep.processing_seconds ? ' · ' + Math.round(ep.processing_seconds / 60) + 'm' : '') + (ep.cost != null ? ' · $' + parseFloat(ep.cost).toFixed(4) : '')"></div>
+            <div x-show="ep.status === 'error' && ep.error_message" style="font-size:0.688rem;color:#f3727f;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" x-text="ep.error_message"></div>
+          </div>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            <template x-if="ep.status === 'none' || ep.status === 'new'">
+              <span class="badge badge-gray">Not transcribed</span>
+            </template>
+            <template x-if="ep.status === 'processing'">
+              <span class="badge badge-dot badge-blue">Processing</span>
+            </template>
+            <template x-if="ep.status === 'ready'">
+              <a :href="'/episodes/' + ep.our_episode_id" class="badge badge-green">Transcribed</a>
+            </template>
+            <template x-if="ep.status === 'error'">
+              <div class="flex items-center gap-2">
+                <span class="badge badge-red">Error</span>
+                <button @click="processEpisode(ep.our_episode_id)" :disabled="!ep.our_episode_id" class="btn btn-ghost btn-sm" style="color:var(--accent);">Retry</button>
+              </div>
+            </template>
+            <button x-show="(ep.status === 'none' || ep.status === 'new') && ep.our_episode_id"
+                    @click="processEpisode(ep.our_episode_id)" class="btn btn-primary btn-sm">Transcribe</button>
+          </div>
+        </div>
+      </template>
+      <div x-show="filteredEpisodes.length === 0 && !loading" class="text-center" style="padding:24px;color:var(--text-tertiary);font-size:0.875rem;">
+        No items found
+      </div>
+    </div>
             <div x-show="ep.model_used" class="text-2xs text-tertiary mt-1" x-text="ep.model_used + (ep.processing_seconds ? ' \u00b7 ' + Math.round(ep.processing_seconds / 60) + 'm' : '')"></div>
             <div x-show="ep.status === 'error' && ep.error_message" class="text-2xs text-red mt-1 truncate" x-text="ep.error_message"></div>
           </div>

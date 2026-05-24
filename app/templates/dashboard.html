@@ -23,16 +23,17 @@
 
   <!-- Library Tab -->
   <div x-show="activeTab === 'library'" x-cloak>
-    <div class="mb-4">
+    <div class="flex items-center gap-3 mb-4">
       <select x-model="selectedLibrary" @change="loadItems()" class="select">
-        <option value="" disabled>Select library...</option>
+        <option value="" disabled>Select library to sync...</option>
         <template x-for="lib in filteredLibraries" :key="lib.id">
           <option :value="lib.id" x-text="lib.name"></option>
         </template>
       </select>
-      <p x-show="!loading && filteredLibraries.length === 0" class="text-xs text-tertiary mt-1">
-        No libraries found. Configure your Audiobookshelf connection in Admin.
-      </p>
+      <button @click="syncLibrary()" :disabled="syncing || !selectedLibrary" class="btn btn-primary btn-sm"
+              x-text="syncing ? 'Syncing...' : 'Sync'">
+      </button>
+      <span x-show="syncResult" x-text="syncResult" class="text-xs text-accent"></span>
     </div>
 
     <div x-show="selectedIds.length > 0" class="mb-4 flex items-center gap-3" style="padding:12px 16px; background:var(--bg-elevated); border-radius:var(--radius-full);">
@@ -53,14 +54,14 @@
       <template x-for="(item, idx) in items" :key="item.id">
         <div class="card" :style="'animation-delay:' + (idx * 0.04) + 's'" style="padding:16px;" class="card-reveal">
           <template x-if="item.media_type !== 'ebook'">
-            <input type="checkbox" :checked="selectedIds.includes(item.id)"
-                   @change="toggleSelect(item.id)"
+            <input type="checkbox" :checked="selectedIds.includes(item.abs_item_id)"
+                   @change="toggleSelect(item.abs_item_id)"
                    class="checkbox absolute" style="top:12px; left:12px; z-index:10; opacity:0; transition:opacity 0.15s;"
-                   :style="selectedIds.includes(item.id) ? 'opacity:1' : ''"
+                   :style="selectedIds.includes(item.abs_item_id) ? 'opacity:1' : ''"
                    onmouseenter="this.style.opacity='1'" onmouseleave="if(!this.checked) this.style.opacity='0'">
           </template>
 
-          <a :href="'/library/' + item.id" style="display:block;">
+          <a :href="'/library/' + item.abs_item_id" style="display:block;">
             <div class="flex items-center gap-3">
               <template x-if="item.cover_url">
                 <img :src="item.cover_url" style="width:64px;height:64px;border-radius:6px;flex-shrink:0;object-fit:cover;box-shadow:0 4px 12px rgba(0,0,0,0.4);">
@@ -72,9 +73,10 @@
               </template>
               <div class="min-w-0 flex-1">
                 <div class="font-bold truncate" style="font-size:0.875rem;" x-text="item.title"></div>
-                <div class="text-xs text-secondary truncate mt-1" x-text="item.author || ''"></div>
-                <div class="text-2xs text-tertiary mt-1">
-                  <span x-text="item.num_episodes + (item.media_type === 'podcast' ? ' episodes' : ' chapters')"></span>
+                <div class="text-xs text-secondary truncate mt-1" x-text="item.author || item.narrator || ''"></div>
+                <div class="flex items-center gap-3 mt-1">
+                  <span class="badge badge-green" style="font-size:0.688rem;" x-show="item.media_type" x-text="item.media_type"></span>
+                  <span class="text-2xs text-tertiary" x-text="item.episode_count + ' episodes'"></span>
                 </div>
               </div>
             </div>
@@ -82,23 +84,8 @@
 
           <div class="flex items-center justify-between mt-3" style="padding-top:12px;border-top:1px solid var(--border-subtle);">
             <div class="min-w-0 flex-1">
-              <template x-if="item.media_type === 'ebook'">
-                <span class="badge badge-gray">e-book &mdash; not transcribable</span>
-              </template>
-              <template x-if="item.media_type !== 'ebook'">
-                <span class="badge badge-dot"
-                      :class="{
-                        'badge-gray': item.transcribe_status === 'none',
-                        'badge-yellow': item.transcribe_status === 'partial',
-                        'badge-blue': item.transcribe_status === 'processing',
-                        'badge-green': item.transcribe_status === 'done',
-                      }"
-                      x-text="item.transcribe_status === 'none' ? 'Not transcribed' : item.transcribe_status === 'partial' ? 'Partial' : item.transcribe_status === 'processing' ? 'Processing' : 'Transcribed'">
-                </span>
-              </template>
-              <div x-show="item.latest_model" class="text-2xs text-tertiary mt-1" x-text="item.latest_model + (item.total_processing_seconds ? ' \u00b7 ' + Math.round(item.total_processing_seconds / 60) + 'm' : '')"></div>
+              <span x-show="item.media_type === 'ebook'" class="badge badge-gray">e-book &mdash; not transcribable</span>
             </div>
-
             <div x-show="item.media_type === 'podcast'" class="flex items-center gap-2" @click.prevent.stop>
               <span class="text-2xs text-tertiary font-medium">Auto</span>
               <div @click="toggleAutoProcess(item)" class="toggle" :class="{ active: item.auto_process }"></div>
@@ -108,15 +95,10 @@
       </template>
     </div>
 
-    <div x-show="!loading && items.length === 0 && selectedLibrary" class="empty-state">
-      <div class="empty-state-icon">&#x1F4DA;</div>
-      <p class="font-bold">No items found</p>
-      <p class="text-sm mt-1">This library appears to be empty.</p>
-    </div>
-    <div x-show="!loading && !selectedLibrary" class="empty-state">
+    <div x-show="!loading && items.length === 0" class="empty-state">
       <div class="empty-state-icon">&#x1F4E1;</div>
-      <p class="font-bold">Select a library</p>
-      <p class="text-sm mt-1">Choose a library above to browse its content.</p>
+      <p class="font-bold">No imported items</p>
+      <p class="text-sm mt-1">Select a library above and click Sync to import from Audiobookshelf.</p>
     </div>
   </div>
 </div>
@@ -139,6 +121,8 @@ function dashboard() {
     items: [],
     selectedIds: [],
     transcribing: false,
+    syncing: false,
+    syncResult: '',
 
     get filteredLibraries() {
       return this.libraries.filter(l => l.mediaType === 'podcast' || l.mediaType === 'book');
@@ -156,27 +140,36 @@ function dashboard() {
     },
 
     async init() {
-      this.$watch('activeTab', val => {
-        if (val === 'library' && this.libraries.length === 0) {
-          this.loading = true;
-          fetch('/api/abs/libraries').then(r => r.json()).then(libs => {
-            if (Array.isArray(libs)) this.libraries = libs;
-            this.selectFirstLibrary();
-          }).catch(() => { this.loading = false; });
-        } else if (val === 'podcasts') {
-          this.loadPodcasts();
-        }
-      });
       this.loadPodcasts();
+      fetch('/api/abs/libraries').then(r => r.json()).then(libs => {
+        if (Array.isArray(libs)) this.libraries = libs;
+      }).catch(() => {});
+    },
+
+    async syncLibrary() {
+      if (!this.selectedLibrary) return;
+      this.syncing = true;
+      this.syncResult = '';
+      const r = await fetch('/api/abs/library/' + this.selectedLibrary + '/sync', { method: 'POST' });
+      const data = await r.json();
+      this.syncResult = 'Imported ' + (data.synced || 0) + ' items.';
+      await this.loadItems();
+      this.syncing = false;
+      setTimeout(() => this.syncResult = '', 3000);
     },
 
     async loadItems() {
-      if (!this.selectedLibrary) { this.loading = false; return; }
       this.loading = true;
       this.selectedIds = [];
-      const r = await fetch('/api/abs/library/' + this.selectedLibrary + '/items');
-      const data = await r.json();
-      this.items = data.items || [];
+      const r = await fetch('/api/podcasts?source_type=abs');
+      let allItems = await r.json();
+      if (this.selectedLibrary) {
+        const libR = await fetch('/api/abs/library/' + this.selectedLibrary + '/items');
+        const libData = await libR.json();
+        const libIds = new Set((libData.items || []).map(i => i.id));
+        allItems = allItems.filter(p => libIds.has(p.abs_item_id));
+      }
+      this.items = allItems;
       this.loading = false;
     },
 
@@ -215,9 +208,18 @@ function dashboard() {
 
     async loadPodcasts() {
       this.loading = true;
-      const r = await fetch('/api/podcasts');
+      const r = await fetch('/api/podcasts?source_type=rss');
       this.podcasts = await r.json();
       this.loading = false;
+    },
+
+    async toggleAutoProcess(item) {
+      await fetch('/api/abs/items/' + item.abs_item_id + '/auto-process', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({auto_process: !item.auto_process}),
+      });
+      item.auto_process = !item.auto_process;
     },
 
     confirmDelete(p) { this.deleteTarget = p; },

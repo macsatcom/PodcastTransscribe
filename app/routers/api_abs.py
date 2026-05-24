@@ -177,6 +177,28 @@ async def get_abs_item(item_id: str, db: AsyncSession = Depends(get_db)):
     podcast_query = select(Podcast).where(Podcast.abs_item_id == item_id)
     podcast = (await db.execute(podcast_query)).scalar_one_or_none()
 
+    if not podcast:
+        title = metadata.get("title", item_id)
+        author = metadata.get("author") or metadata.get("authorName") or metadata.get("narratorName") or ""
+        podcast = Podcast(
+            title=title,
+            author=author,
+            abs_item_id=item_id,
+            media_type=media_type,
+            cover_url=f"/api/abs/items/{item_id}/cover",
+            auto_process=False,
+        )
+        db.add(podcast)
+        await db.flush()
+        config = SourceConfig(
+            podcast_id=podcast.id,
+            source_type="abs",
+            url=item_id,
+            enabled=True,
+        )
+        db.add(config)
+        await db.commit()
+
     if podcast:
         real_title = metadata.get("title", "")
         if real_title and (podcast.title == podcast.abs_item_id or not podcast.author):
@@ -206,6 +228,38 @@ async def get_abs_item(item_id: str, db: AsyncSession = Depends(get_db)):
             key = ep.abs_episode_id or str(ep.chapter_index or 0)
             our_episodes_map[key] = ep
 
+        if not our_episodes_map and raw_episodes:
+            try:
+                episodes_meta = await adapter.discover_new(item_id)
+                for meta in episodes_meta:
+                    existing = await db.execute(
+                        select(Episode).where(Episode.podcast_id == podcast.id, Episode.guid == meta.guid)
+                    )
+                    if existing.scalar_one_or_none():
+                        continue
+                    ep = Episode(
+                        podcast_id=podcast.id,
+                        guid=meta.guid,
+                        title=meta.title,
+                        description=meta.description,
+                        audio_url=meta.audio_url,
+                        duration_seconds=meta.duration_seconds,
+                        published_at=meta.published_at,
+                        status="new",
+                        abs_item_id=meta.abs_item_id,
+                        abs_episode_id=meta.abs_episode_id,
+                        chapter_index=meta.chapter_index,
+                        media_type=meta.media_type,
+                    )
+                    db.add(ep)
+                await db.commit()
+                rows = await db.execute(select(Episode).where(Episode.podcast_id == podcast.id))
+                for ep in rows.scalars().all():
+                    key = ep.abs_episode_id or str(ep.chapter_index or 0)
+                    our_episodes_map[key] = ep
+            except Exception:
+                pass
+
     if media_type == "podcast":
         raw_episodes.sort(key=lambda e: e.get("publishedAt") or 0, reverse=True)
 
@@ -232,6 +286,7 @@ async def get_abs_item(item_id: str, db: AsyncSession = Depends(get_db)):
             "our_episode_id": str(our_ep.id) if our_ep else None,
             "model_used": our_ep.model_used if our_ep else None,
             "processing_seconds": our_ep.processing_seconds if our_ep else None,
+            "cost": our_ep.cost if our_ep else None,
             "error_message": our_ep.error_message if our_ep and our_ep.status == "error" else None,
             "published_at": published_at,
         })
@@ -289,6 +344,7 @@ async def toggle_auto_process(item_id: str, body: dict, db: AsyncSession = Depen
             author=author,
             abs_item_id=item_id,
             media_type=media_type,
+            cover_url=f"/api/abs/items/{item_id}/cover",
             auto_process=auto_process,
         )
         db.add(podcast)
@@ -349,3 +405,76 @@ async def enqueue_pending_batch(body: dict, db: AsyncSession = Depends(get_db)):
             await episode_queue.enqueue_episodes(ids)
             total += len(ids)
     return {"status": "enqueued", "count": total}
+
+
+@router.post("/library/{library_id}/sync")
+async def sync_library(library_id: str, db: AsyncSession = Depends(get_db)):
+    adapter = await get_adapter(db)
+    try:
+        items = await adapter.get_library_items(library_id)
+    except Exception as e:
+        return {"error": str(e)}
+
+    synced = 0
+    for raw in items:
+        abs_item_id = raw.get("id")
+        if not abs_item_id:
+            continue
+
+        existing = (await db.execute(
+            select(Podcast).where(Podcast.abs_item_id == abs_item_id)
+        )).scalar_one_or_none()
+        if existing:
+            continue
+
+        media = raw.get("media", {})
+        metadata = media.get("metadata", {})
+        title = metadata.get("title", abs_item_id)
+        author = metadata.get("author") or metadata.get("authorName") or metadata.get("narratorName") or ""
+        media_type = raw.get("mediaType", "book")
+
+        podcast = Podcast(
+            title=title,
+            author=author,
+            abs_item_id=abs_item_id,
+            media_type=media_type,
+            cover_url=f"/api/abs/items/{abs_item_id}/cover",
+            auto_process=False,
+        )
+        db.add(podcast)
+        await db.flush()
+
+        config = SourceConfig(
+            podcast_id=podcast.id,
+            source_type="abs",
+            url=abs_item_id,
+            enabled=True,
+            config_json={"library_id": library_id},
+        )
+        db.add(config)
+
+        try:
+            episodes_meta = await adapter.discover_new(abs_item_id)
+            for meta in episodes_meta:
+                ep = Episode(
+                    podcast_id=podcast.id,
+                    guid=meta.guid,
+                    title=meta.title,
+                    description=meta.description,
+                    audio_url=meta.audio_url,
+                    duration_seconds=meta.duration_seconds,
+                    published_at=meta.published_at,
+                    status="new",
+                    abs_item_id=meta.abs_item_id,
+                    abs_episode_id=meta.abs_episode_id,
+                    chapter_index=meta.chapter_index,
+                    media_type=meta.media_type,
+                )
+                db.add(ep)
+            await db.commit()
+            synced += 1
+        except Exception:
+            await db.commit()
+            synced += 1
+
+    return {"synced": synced}

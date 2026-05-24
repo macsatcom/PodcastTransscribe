@@ -119,16 +119,19 @@
       <div class="spinner"></div> Loading episodes...
     </div>
     <template x-for="ep in filteredEpisodes" :key="ep.id">
-      <div class="table-row">
-        <input type="checkbox" :checked="selectedIds.includes(ep.id)" @change="toggleSelect(ep.id)" class="checkbox flex-shrink-0">
-        <a :href="'/episodes/' + ep.id" class="min-w-0 flex-1" style="display:block;">
-          <div class="text-sm font-medium truncate" x-text="ep.title"></div>
-          <div class="flex items-center gap-3 mt-1">
-            <span class="text-2xs text-tertiary" x-text="ep.published_at ? new Date(ep.published_at).toLocaleDateString() : ''"></span>
-            <span class="text-2xs text-tertiary" x-show="ep.duration_seconds" x-text="Math.floor(ep.duration_seconds / 60) + 'm'"></span>
+      <div class="flex items-start gap-3" style="padding:12px 16px;background:var(--bg-surface);border-radius:6px;border:1px solid var(--border-subtle);transition:border-color 0.15s;">
+        <input type="checkbox" :checked="selectedIds.includes(ep.id)" @change="toggleSelect(ep.id)"
+               class="checkbox flex-shrink-0 mt-1">
+        <a :href="'/episodes/' + ep.id" class="min-w-0 flex-1">
+          <div style="font-size:0.875rem;font-weight:600;line-height:1.5;">
+            <span x-text="ep.title"></span>
+            <span x-show="ep.description" style="font-size:0.75rem;font-weight:400;color:var(--text-secondary);"> &mdash; <span x-text="ep.description"></span></span>
           </div>
-          <div x-show="ep.model_used" class="text-2xs text-tertiary mt-1" x-text="ep.model_used + (ep.processing_seconds ? ' \u00b7 ' + Math.round(ep.processing_seconds / 60) + 'm' : '') + (ep.cost ? ' \u00b7 $' + ep.cost.toFixed(4) : '')"></div>
-          <div x-show="ep.description" class="text-2xs text-tertiary mt-1 line-clamp-2" x-text="ep.description"></div>
+          <div style="font-size:0.75rem;color:var(--text-tertiary);margin-top:2px;">
+            <span x-text="ep.published_at ? new Date(ep.published_at).toLocaleDateString('da-DK',{day:'2-digit',month:'short'}) : ''"></span>
+            <span x-show="ep.duration_seconds" x-text="' · ' + Math.floor(ep.duration_seconds / 60) + 'm'"></span>
+          </div>
+          <div x-show="ep.model_used" style="font-size:0.75rem;color:var(--text-tertiary);margin-top:1px;" x-text="ep.model_used + (ep.processing_seconds ? ' · ' + Math.round(ep.processing_seconds / 60) + 'm' : '') + (ep.cost ? ' · $' + ep.cost.toFixed(4) : '')"></div>
         </a>
         <div class="flex items-center gap-2 flex-shrink-0">
           <span class="badge"

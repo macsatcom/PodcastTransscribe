@@ -41,12 +41,9 @@
       <h2 class="section-title mb-3">Running</h2>
       <div class="flex flex-col gap-1">
         <template x-for="ep in running" :key="ep.id">
-          <a :href="'/episodes/' + ep.id" class="table-row" style="background:rgba(83,157,245,0.06);">
+          <a :href="'/episodes/' + ep.id" class="flex items-center gap-3" style="padding:12px 16px;background:rgba(83,157,245,0.06);border-radius:6px;border:1px solid var(--border-subtle);">
             <div class="spinner flex-shrink-0" style="width:14px;height:14px;border-top-color:#539df5;"></div>
-            <div class="min-w-0 flex-1">
-              <span class="text-sm font-medium truncate" x-text="ep.title"></span>
-              <span class="text-2xs text-secondary ml-2" x-text="ep.podcast_title"></span>
-            </div>
+            <span class="text-sm truncate flex-1"><span class="font-bold" style="font-size:0.813rem;" x-text="ep.podcast_title + ' '"></span><span class="font-medium" x-text="ep.title"></span></span>
             <span class="badge badge-dot badge-blue flex-shrink-0" x-text="ep.status"></span>
           </a>
         </template>
@@ -58,12 +55,9 @@
       <h2 class="section-title mb-3">In Queue</h2>
       <div class="flex flex-col gap-1">
         <template x-for="ep in queued" :key="ep.id">
-          <a :href="'/episodes/' + ep.id" class="table-row">
+          <a :href="'/episodes/' + ep.id" class="flex items-center gap-3" style="padding:12px 16px;background:var(--bg-surface);border-radius:6px;border:1px solid var(--border-subtle);">
             <div class="status-dot yellow flex-shrink-0"></div>
-            <div class="min-w-0 flex-1">
-              <span class="text-sm font-medium truncate" x-text="ep.title"></span>
-              <span class="text-2xs text-secondary ml-2" x-text="ep.podcast_title"></span>
-            </div>
+            <span class="text-sm truncate flex-1"><span class="font-bold" style="font-size:0.813rem;" x-text="ep.podcast_title + ' '"></span><span class="font-medium" x-text="ep.title"></span></span>
             <span class="badge badge-yellow flex-shrink-0">queued</span>
           </a>
         </template>
@@ -75,15 +69,14 @@
       <h2 class="section-title mb-3">Failed</h2>
       <div class="flex flex-col gap-1">
         <template x-for="ep in error" :key="ep.id">
-          <div class="table-row">
+          <a :href="'/episodes/' + ep.id" class="flex items-center gap-3" style="padding:12px 16px;background:var(--bg-surface);border-radius:6px;border:1px solid var(--border-subtle);">
             <div class="status-dot red flex-shrink-0"></div>
-            <div class="min-w-0 flex-1">
-              <a :href="'/episodes/' + ep.id" class="text-sm font-medium truncate link-underline" style="display:inline;" x-text="ep.title"></a>
-              <span class="text-2xs text-secondary ml-2" x-text="ep.podcast_title"></span>
-              <p x-show="ep.error_message" class="text-2xs text-red mt-1 truncate" x-text="ep.error_message"></p>
+            <span class="text-sm truncate flex-1"><span class="font-bold" style="font-size:0.813rem;" x-text="ep.podcast_title + ' '"></span><span class="font-medium" x-text="ep.title"></span></span>
+            <div class="min-w-0 flex-shrink-0" style="max-width:200px;">
+              <span class="text-xs text-red truncate" x-text="ep.error_message"></span>
             </div>
             <span class="badge badge-red flex-shrink-0">failed</span>
-          </div>
+          </a>
         </template>
       </div>
     </div>
@@ -93,12 +86,9 @@
       <h2 class="section-title mb-3">Completed</h2>
       <div class="flex flex-col gap-1">
         <template x-for="ep in done" :key="ep.id">
-          <a :href="'/episodes/' + ep.id" class="table-row" style="opacity:0.6;">
+          <a :href="'/episodes/' + ep.id" class="flex items-center gap-3" style="padding:12px 16px;opacity:0.6;background:var(--bg-surface);border-radius:6px;border:1px solid var(--border-subtle);">
             <div class="status-dot green flex-shrink-0"></div>
-            <div class="min-w-0 flex-1">
-              <span class="text-sm font-medium truncate" x-text="ep.title"></span>
-              <span class="text-2xs text-secondary ml-2" x-text="ep.podcast_title"></span>
-            </div>
+            <span class="text-sm truncate flex-1"><span class="font-bold" style="font-size:0.813rem;" x-text="ep.podcast_title + ' '"></span><span class="font-medium" x-text="ep.title"></span></span>
             <span class="badge badge-green flex-shrink-0">completed</span>
           </a>
         </template>
