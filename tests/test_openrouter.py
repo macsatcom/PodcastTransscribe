@@ -23,7 +23,7 @@ async def test_summarize():
         mock_response_instance.json = Mock(return_value=mock_response)
         mock_post.return_value = mock_response_instance
         result = await client.summarize("test-model", "Some transcript text", "danish")
-        assert result == "This is a summary."
+        assert result[0] == "This is a summary."
     await client.close()
 
 

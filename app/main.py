@@ -2,6 +2,7 @@ import logging
 import os
 from contextlib import asynccontextmanager
 
+logging.basicConfig(level=logging.INFO, format="%(levelname)s [%(name)s] %(message)s")
 logger = logging.getLogger(__name__)
 
 from fastapi import FastAPI
@@ -9,9 +10,9 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from sqlalchemy import select, text
 
 from app.database import engine, Base, async_session
-from app.models.episode import Episode
 from app.models.portal import Portal
 from app.services.rss_poller import poll_all_feeds
+from app.services.queue_manager import episode_queue
 from app.portal_manager import portal_manager
 from app.config import settings
 
@@ -21,28 +22,25 @@ scheduler = AsyncIOScheduler()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     os.makedirs(settings.portal_images_dir, exist_ok=True)
+    os.makedirs(settings.audio_temp_dir, exist_ok=True)
     async with engine.begin() as conn:
         await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
         await conn.run_sync(Base.metadata.create_all)
-    async with async_session() as session:
-        result = await session.execute(
-            select(Episode).where(Episode.status.in_([
-                "downloading", "transcribing", "summarizing", "indexing",
-            ]))
-        )
-        stale = result.scalars().all()
-        for ep in stale:
-            ep.status = "new"
-            ep.error_message = None
-        await session.commit()
-        if stale:
-            logger.info("Reset %d stale processing episodes to queued", len(stale))
+
+    await episode_queue.start()
 
     scheduler.add_job(
         poll_all_feeds,
         trigger="interval",
         hours=6,
         id="rss_poll",
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        episode_queue.stale_check,
+        trigger="interval",
+        minutes=5,
+        id="stale_check",
         replace_existing=True,
     )
     scheduler.start()
@@ -55,6 +53,7 @@ async def lifespan(app: FastAPI):
     yield
     await portal_manager.stop_all()
     scheduler.shutdown(wait=False)
+    await episode_queue.stop()
     await engine.dispose()
 
 

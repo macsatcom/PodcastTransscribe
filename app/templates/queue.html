@@ -1,19 +1,32 @@
 {% extends "base.html" %}
 {% block content %}
 <div x-data="queueView()" x-init="loadQueue(); startPolling()">
-  <div class="flex items-center justify-between mb-6">
-    <h1 class="text-2xl font-bold">Queue</h1>
-    <div class="flex items-center gap-3 text-sm">
-      <span x-show="counts.running > 0" class="flex items-center gap-1 text-blue-400">
-        <svg class="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-        </svg>
-        <span x-text="counts.running"></span> running
-      </span>
-      <span class="text-yellow-400" x-show="counts.queued > 0" x-text="counts.queued + ' queued'"></span>
-      <span class="text-red-400" x-show="counts.error > 0" x-text="counts.error + ' failed'"></span>
-      <span class="text-gray-500" x-text="counts.done + ' completed'"></span>
+  <div class="flex items-start justify-between mb-6">
+    <div>
+      <h1 class="text-2xl font-bold">Queue</h1>
+      <p x-show="qm.workers" class="text-xs text-gray-500 mt-1">
+        <span x-text="qm.workers"></span> workers
+        <span x-show="qm.queue_size > 0" x-text="' \u2014 ' + qm.queue_size + ' in queue'"></span>
+        <span x-show="qm.running_count > 0" x-text="' \u2014 ' + qm.running_count + ' processing'"></span>
+      </p>
+    </div>
+    <div class="flex items-center gap-3">
+      <button @click="processAllPending()" class="bg-emerald-800 hover:bg-emerald-700 px-3 py-1.5 rounded text-xs font-medium"
+              x-text="processingAll ? 'Enqueuing...' : 'Process All Pending'"
+              :disabled="processingAll">
+      </button>
+      <div class="flex items-center gap-3 text-sm">
+        <span x-show="counts.running > 0" class="flex items-center gap-1 text-blue-400">
+          <svg class="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+          </svg>
+          <span x-text="counts.running"></span> running
+        </span>
+        <span class="text-yellow-400" x-show="counts.queued > 0" x-text="counts.queued + ' queued'"></span>
+        <span class="text-red-400" x-show="counts.error > 0" x-text="counts.error + ' failed'"></span>
+        <span class="text-gray-500" x-text="counts.done + ' completed'"></span>
+      </div>
     </div>
   </div>
 
@@ -123,10 +136,24 @@ function queueView() {
     error: [],
     done: [],
     counts: { running: 0, queued: 0, error: 0, done: 0 },
+    qm: {},
     pollTimer: null,
+    processingAll: false,
 
     totalItems() {
       return this.running.length + this.queued.length + this.error.length + this.done.length;
+    },
+
+    async processAllPending() {
+      this.processingAll = true;
+      try {
+        const r = await fetch('/api/episodes/process-all-pending', { method: 'POST' });
+        const data = await r.json();
+        await this.loadQueue();
+      } catch (e) {
+        console.error('Failed to enqueue', e);
+      }
+      this.processingAll = false;
     },
 
     async loadQueue() {
@@ -137,7 +164,8 @@ function queueView() {
         this.queued = data.queued;
         this.error = data.error;
         this.done = data.done;
-        this.counts = data.counts;
+        this.counts = data.counts || data.total_counts || {};
+        this.qm = data.queue_manager || {};
       } catch (e) {
         console.error('Failed to load queue', e);
       }

@@ -1,14 +1,13 @@
 from fastapi import APIRouter, Depends
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from app.database import get_db
 from app.models.episode import Episode
+from app.services.queue_manager import episode_queue, RUNNING_STATUSES
 
 router = APIRouter(prefix="/api", tags=["queue"])
-
-RUNNING_STATUSES = {"downloading", "transcribing", "summarizing", "indexing"}
 
 
 def _serialize(episode: Episode) -> dict:
@@ -26,37 +25,59 @@ def _serialize(episode: Episode) -> dict:
 
 @router.get("/queue")
 async def get_queue(db: AsyncSession = Depends(get_db)):
-    query = (
-        select(Episode)
-        .options(joinedload(Episode.podcast))
+    total_query = select(Episode.status, func.count().label("cnt")).group_by(Episode.status)
+    total_result = await db.execute(total_query)
+    total_by_status = {row[0]: row[1] for row in total_result.all()}
+
+    total_counts = {
+        "running": sum(total_by_status.get(s, 0) for s in RUNNING_STATUSES),
+        "queued": total_by_status.get("new", 0),
+        "error": total_by_status.get("error", 0),
+        "done": total_by_status.get("ready", 0),
+    }
+
+    running_query = (
+        select(Episode).options(joinedload(Episode.podcast))
+        .where(Episode.status.in_(RUNNING_STATUSES))
         .order_by(Episode.created_at.desc())
-        .limit(500)
+        .limit(20)
     )
-    result = await db.execute(query)
-    episodes = result.scalars().all()
+    running_result = await db.execute(running_query)
+    running = [_serialize(e) for e in running_result.scalars().all()]
 
-    items = [_serialize(e) for e in episodes]
+    queued_query = (
+        select(Episode).options(joinedload(Episode.podcast))
+        .where(Episode.status == "new")
+        .order_by(Episode.created_at.asc())
+        .limit(20)
+    )
+    queued_result = await db.execute(queued_query)
+    queued = [_serialize(e) for e in queued_result.scalars().all()]
 
-    running = [e for e in items if e["status"] in RUNNING_STATUSES]
-    queued = [e for e in items if e["status"] == "new"]
-    error = [e for e in items if e["status"] == "error"]
-    done = [e for e in items if e["status"] == "ready"]
+    error_query = (
+        select(Episode).options(joinedload(Episode.podcast))
+        .where(Episode.status == "error")
+        .order_by(Episode.created_at.desc())
+        .limit(20)
+    )
+    error_result = await db.execute(error_query)
+    error = [_serialize(e) for e in error_result.scalars().all()]
 
-    running.sort(key=lambda e: e["created_at"], reverse=True)
-    queued.sort(key=lambda e: e["created_at"])
-    error.sort(key=lambda e: e["created_at"], reverse=True)
-    done.sort(key=lambda e: e["created_at"], reverse=True)
-    done = done[:50]
+    done_query = (
+        select(Episode).options(joinedload(Episode.podcast))
+        .where(Episode.status == "ready")
+        .order_by(Episode.created_at.desc())
+        .limit(50)
+    )
+    done_result = await db.execute(done_query)
+    done = [_serialize(e) for e in done_result.scalars().all()]
 
     return {
         "running": running,
         "queued": queued,
         "error": error,
         "done": done,
-        "counts": {
-            "running": len(running),
-            "queued": len(queued),
-            "error": len(error),
-            "done": len(done),
-        },
+        "counts": total_counts,
+        "total_counts": total_counts,
+        "queue_manager": episode_queue.status(),
     }

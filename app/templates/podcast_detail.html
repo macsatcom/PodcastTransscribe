@@ -307,7 +307,7 @@ function podcastDetail() {
           const data = await r.json();
           ep.status = data.status;
           ep.error_message = data.error_message;
-          if (data.status !== 'processing' && data.status !== 'downloading' && data.status !== 'transcribing' && data.status !== 'summarizing' && data.status !== 'indexing') {
+          if (!['downloading','transcribing','summarizing','indexing','processing'].includes(data.status || '')) {
             clearInterval(poll);
             ep.processing = false;
           }
@@ -315,30 +315,40 @@ function podcastDetail() {
           clearInterval(poll);
           ep.processing = false;
         }
-      }, 2000);
+      }, 3000);
     },
 
     async processSelected() {
       const ids = [...this.selectedIds];
       this.selectedIds = [];
-      for (const id of ids) {
-        const ep = this.episodes.find(e => e.id === id);
-        if (ep && (ep.status === 'new' || ep.status === 'error')) {
-          this.processEpisode(ep);
-        }
+      try {
+        const r = await fetch('/api/episodes/process-batch', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ids}),
+        });
+        const data = await r.json();
+        this.processAllResult = `Enqueued ${data.count || ids.length} episode(s).`;
+        await this.loadEpisodes();
+      } catch (e) {
+        this.processAllResult = 'Batch processing failed.';
       }
+      setTimeout(() => this.processAllResult = '', 4000);
     },
 
     async processAll() {
       this.processingAll = true;
       this.processAllResult = '';
-      const pending = this.episodes.filter(e => e.status === 'new' || e.status === 'error');
-      for (const ep of pending) {
-        this.processEpisode(ep);
+      try {
+        const r = await fetch('/api/episodes/process-all-pending', { method: 'POST' });
+        const data = await r.json();
+        this.processAllResult = `Enqueued ${data.count || 0} episode(s).`;
+        await this.loadEpisodes();
+      } catch (e) {
+        this.processAllResult = 'Batch processing failed.';
       }
-      this.processAllResult = `Started processing ${pending.length} episode(s).`;
       this.processingAll = false;
-      setTimeout(() => this.processAllResult = '', 4000);
+      setTimeout(() => this.processAllResult = '', 6000);
     }
   };
 }

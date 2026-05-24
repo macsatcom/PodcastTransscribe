@@ -1,4 +1,3 @@
-import asyncio
 import logging
 from datetime import datetime, timezone
 
@@ -9,7 +8,7 @@ from app.database import async_session
 from app.models.episode import Episode
 from app.models.podcast import Podcast
 from app.models.source_config import SourceConfig
-from app.services.pipeline import process_episode
+from app.services.queue_manager import episode_queue
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +23,11 @@ async def poll_all_feeds():
         )
         configs = result.scalars().all()
 
-    await asyncio.gather(*(poll_feed(c.id) for c in configs), return_exceptions=True)
+    for cfg in configs:
+        try:
+            await poll_feed(cfg.id)
+        except Exception as e:
+            logger.error("RSS poll failed for config %s: %s", cfg.id, e)
 
 
 async def poll_feed(source_config_id):
@@ -40,7 +43,7 @@ async def poll_feed(source_config_id):
         try:
             episodes_meta = await adapter.discover_new(config.url)
         except Exception as e:
-            logger.error("RSS poll failed for %s: %s", config.url, e)
+            logger.error("RSS parse failed for %s: %s", config.url, e)
             return
 
         podcast = await session.get(Podcast, config.podcast_id)
@@ -80,6 +83,6 @@ async def poll_feed(source_config_id):
         config.last_polled_at = datetime.now(timezone.utc)
         await session.commit()
 
-    if auto_process:
-        for ep_id in new_episode_ids:
-            asyncio.create_task(process_episode(ep_id))
+    if auto_process and new_episode_ids:
+        await episode_queue.enqueue_episodes(new_episode_ids)
+        logger.info("RSS poll: enqueued %d new episodes for podcast %s", len(new_episode_ids), podcast.id)
