@@ -132,6 +132,9 @@ class EpisodeQueue:
                 await session.commit()
                 logger.info("Stale check: reset %d episodes stuck > %d min", len(stale), STALE_TIMEOUT_MINUTES)
 
+    def get_queued_ids(self) -> list[str]:
+        return list(self._enqueued_ids)
+
     def status(self) -> dict:
         return {
             "running_count": len(self._currently_processing),

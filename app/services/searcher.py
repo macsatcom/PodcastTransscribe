@@ -20,6 +20,7 @@ async def search_fts(
     language: str = "danish",
     podcast_ids: list[str] | None = None,
     episode_ids: list[str] | None = None,
+    media_type: str | None = None,
     limit: int = 20,
 ) -> list[dict]:
     conditions = [text(f"to_tsvector('{language}', ft.full_text) @@ phraseto_tsquery('{language}', :query)")]
@@ -31,14 +32,17 @@ async def search_fts(
     if episode_ids:
         conditions.append(text("e.id = ANY(:episode_ids)"))
         params["episode_ids"] = episode_ids
+    if media_type:
+        conditions.append(text("e.media_type = :media_type"))
+        params["media_type"] = media_type
 
     where_clause = " AND ".join(str(c) for c in conditions)
 
     sql = text(f"""
         SELECT e.id AS episode_id, e.title AS episode_title, e.published_at,
-               p.title AS podcast_title, p.cover_url,
+               p.title AS podcast_title, p.cover_url, e.media_type,
                ts_headline(:lang, ft.full_text, phraseto_tsquery(:lang, :query),
-                           'StartSel=<mark>, StopSel=</mark>, MaxWords=60, MinWords=20') AS snippet
+                            'StartSel=<mark>, StopSel=</mark>, MaxWords=60, MinWords=20') AS snippet
         FROM transcripts ft
         JOIN episodes e ON e.id = ft.episode_id
         JOIN podcasts p ON p.id = e.podcast_id
@@ -56,6 +60,7 @@ async def search_fts(
             "published_at": r.published_at.isoformat() if r.published_at else None,
             "podcast_title": r.podcast_title,
             "cover_url": r.cover_url,
+            "media_type": r.media_type,
             "snippet": r.snippet,
             "type": "fts",
         }
@@ -68,6 +73,7 @@ async def search_semantic(
     query: str,
     podcast_ids: list[str] | None = None,
     episode_ids: list[str] | None = None,
+    media_type: str | None = None,
     limit: int = 20,
 ) -> list[dict]:
     setting = await session.get(Setting, EMBEDDING_MODEL_KEY)
@@ -87,6 +93,9 @@ async def search_semantic(
     if episode_ids:
         conditions.append("e.id = ANY(:episode_ids)")
         params["episode_ids"] = episode_ids
+    if media_type:
+        conditions.append("e.media_type = :media_type")
+        params["media_type"] = media_type
 
     where_clause = " AND ".join(conditions)
 
@@ -94,7 +103,7 @@ async def search_semantic(
         SELECT chunk.text, chunk.chunk_index,
                chunk.embedding <=> {embedding_str} AS distance,
                e.id AS episode_id, e.title AS episode_title, e.published_at,
-               p.title AS podcast_title, p.cover_url
+               p.title AS podcast_title, p.cover_url, e.media_type
         FROM transcript_chunks chunk
         JOIN transcripts t ON t.id = chunk.transcript_id
         JOIN episodes e ON e.id = t.episode_id
@@ -113,6 +122,7 @@ async def search_semantic(
             "published_at": r.published_at.isoformat() if r.published_at else None,
             "podcast_title": r.podcast_title,
             "cover_url": r.cover_url,
+            "media_type": r.media_type,
             "snippet": r.text,
             "score": float(1.0 - r.distance),
             "chunk_index": r.chunk_index,

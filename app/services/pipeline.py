@@ -5,6 +5,7 @@ import time
 from sqlalchemy import select, delete
 
 from app.adapters import RSSSourceAdapter
+from app.adapters.abs import ABSSourceAdapter
 from app.config import settings
 from app.database import async_session
 from app.models.episode import Episode
@@ -45,7 +46,10 @@ async def process_episode(episode_id):
                 episode.error_message = None
                 await session.commit()
 
-                adapter = RSSSourceAdapter()
+                if getattr(episode, "abs_item_id", None):
+                    adapter = ABSSourceAdapter()
+                else:
+                    adapter = RSSSourceAdapter()
                 audio_data = (await _run_with_timeout(adapter.fetch_audio(episode.audio_url), "download")).read()
                 t1 = time.monotonic()
                 logger.info("EPISODE %s: download took %.0fs", episode_id, t1 - t0)

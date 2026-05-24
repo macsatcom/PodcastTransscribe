@@ -23,9 +23,10 @@
           </svg>
           <span x-text="counts.running"></span> running
         </span>
-        <span class="text-yellow-400" x-show="counts.queued > 0" x-text="counts.queued + ' queued'"></span>
+        <span class="text-yellow-400" x-show="counts.queued > 0" x-text="counts.queued + ' in queue'"></span>
         <span class="text-red-400" x-show="counts.error > 0" x-text="counts.error + ' failed'"></span>
         <span class="text-gray-500" x-text="counts.done + ' completed'"></span>
+        <span x-show="counts.new_total > counts.queued" class="text-gray-600 text-xs">(<span x-text="counts.new_total"></span> new in DB)</span>
       </div>
     </div>
   </div>

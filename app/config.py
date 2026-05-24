@@ -9,6 +9,8 @@ class Settings(BaseSettings):
     portal_images_dir: str = "/app/portal_images"
     local_whisper_url: str = "http://whisper-cpu:9000"
     max_concurrent_processing: int = 2
+    abs_url: str = ""
+    abs_api_key: str = ""
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 

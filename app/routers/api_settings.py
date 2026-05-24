@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.models.setting import Setting
+from app.adapters.abs import ABSSourceAdapter
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 
@@ -13,6 +14,8 @@ VALID_KEYS = {
     "summarization_model",
     "embedding_model",
     "self_hosted_whisper_url",
+    "abs_url",
+    "abs_api_key",
 }
 
 
@@ -145,3 +148,19 @@ async def list_models(db: AsyncSession = Depends(get_db)):
         "chat": sorted(chat_set | set(defaults["chat"])),
         "embedding": sorted(embedding_set | set(defaults["embedding"])),
     }
+
+
+@router.get("/abs/test")
+async def test_abs_connection(db: AsyncSession = Depends(get_db)):
+    abs_url_setting = await db.get(Setting, "abs_url")
+    abs_key_setting = await db.get(Setting, "abs_api_key")
+    url = (abs_url_setting.value if abs_url_setting else "").strip()
+    key = (abs_key_setting.value if abs_key_setting else "").strip()
+    if not url or not key:
+        return {"ok": False, "error": "ABS URL and API key are required"}
+    adapter = ABSSourceAdapter(abs_url=url, api_key=key)
+    try:
+        await adapter.get_libraries()
+        return {"ok": True}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}

@@ -13,6 +13,10 @@ class EpisodeMetadata:
     duration_seconds: int | None
     published_at: datetime | None
     cover_url: str | None
+    abs_item_id: str | None = None
+    abs_episode_id: str | None = None
+    chapter_index: int | None = None
+    media_type: str = "podcast"
 
 
 class BaseSourceAdapter(ABC):

@@ -23,10 +23,16 @@
     <div class="flex items-center justify-between">
       <div class="flex flex-wrap gap-4 text-sm">
         <select x-model="podcastFilter" @change="loadEpisodes()" class="bg-gray-900 border border-gray-700 rounded p-1.5">
-          <option value="">All Podcasts</option>
+          <option value="">All Items</option>
           <template x-for="p in podcasts" :key="p.id">
             <option :value="p.id" x-text="p.title"></option>
           </template>
+        </select>
+
+        <select x-model="mediaTypeFilter" class="bg-gray-900 border border-gray-700 rounded p-1.5">
+          <option value="">All Types</option>
+          <option value="podcast">Podcasts</option>
+          <option value="book">Audiobooks</option>
         </select>
 
         <select x-model="episodeFilter" class="bg-gray-900 border border-gray-700 rounded p-1.5">
@@ -55,7 +61,11 @@
               <div class="text-xs text-gray-500" x-text="r.podcast_title"></div>
               <span class="text-xs px-1.5 py-0.5 rounded"
                     :class="r.type === 'fts' ? 'bg-blue-800 text-blue-200' : 'bg-emerald-800 text-emerald-200'"
-                    x-text="r.type === 'fts' ? 'Nøgleord' : 'Semantisk'">
+                    x-text="r.type === 'fts' ? 'Keyword' : 'Semantic'">
+              </span>
+              <span x-show="r.media_type" class="text-xs px-1.5 py-0.5 rounded"
+                    :class="r.media_type === 'podcast' ? 'bg-emerald-800 text-emerald-200' : 'bg-blue-800 text-blue-200'"
+                    x-text="r.media_type">
               </span>
             </div>
             <div class="font-medium truncate" x-text="r.episode_title"></div>
@@ -75,6 +85,7 @@ function searchView() {
     natural: '',
     podcastFilter: '',
     episodeFilter: '',
+    mediaTypeFilter: '',
     podcasts: [],
     episodes: [],
     results: [],
@@ -109,6 +120,7 @@ function searchView() {
       }
       if (this.podcastFilter) params.set('podcast_ids', this.podcastFilter);
       if (this.episodeFilter) params.set('episode_ids', this.episodeFilter);
+      if (this.mediaTypeFilter) params.set('media_type', this.mediaTypeFilter);
 
       const r = await fetch('/api/search?' + params);
       const data = await r.json();

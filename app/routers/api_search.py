@@ -15,26 +15,25 @@ async def search(
     language: str = Query("danish", description="Language for FTS"),
     podcast_ids: str | None = Query(None, description="Comma-separated podcast IDs"),
     episode_ids: str | None = Query(None, description="Comma-separated episode IDs"),
+    media_type: str | None = Query(None, description="Filter by media type (podcast, book)"),
     limit: int = Query(20, le=50),
     db: AsyncSession = Depends(get_db),
 ):
     pid_list = podcast_ids.split(",") if podcast_ids else None
     eid_list = episode_ids.split(",") if episode_ids else None
 
-    # If both q and nq provided: FTS on q, semantic on nq
     if q and nq:
-        fts_results = await search_fts(db, q, language, pid_list, eid_list, limit)
-        semantic_results = await search_semantic(db, nq, pid_list, eid_list, limit)
-    # If only q: use mode parameter
+        fts_results = await search_fts(db, q, language, pid_list, eid_list, media_type, limit)
+        semantic_results = await search_semantic(db, nq, pid_list, eid_list, media_type, limit)
     elif mode == "fts":
-        fts_results = await search_fts(db, q, language, pid_list, eid_list, limit)
+        fts_results = await search_fts(db, q, language, pid_list, eid_list, media_type, limit)
         semantic_results = []
     elif mode == "semantic":
         fts_results = []
-        semantic_results = await search_semantic(db, q, pid_list, eid_list, limit)
+        semantic_results = await search_semantic(db, q, pid_list, eid_list, media_type, limit)
     else:
-        fts_results = await search_fts(db, q, language, pid_list, eid_list, limit)
-        semantic_results = await search_semantic(db, q, pid_list, eid_list, limit)
+        fts_results = await search_fts(db, q, language, pid_list, eid_list, media_type, limit)
+        semantic_results = await search_semantic(db, q, pid_list, eid_list, media_type, limit)
 
     seen = set()
     results = []

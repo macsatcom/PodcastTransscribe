@@ -39,3 +39,10 @@ async def queue_page(request: Request):
 @router.get("/admin", response_class=HTMLResponse)
 async def admin_page(request: Request):
     return templates.TemplateResponse(request, "admin.html")
+
+
+@router.get("/library/{abs_item_id}", response_class=HTMLResponse)
+async def library_detail(request: Request, abs_item_id: str):
+    return templates.TemplateResponse(
+        request, "library_detail.html", context={"abs_item_id": abs_item_id},
+    )

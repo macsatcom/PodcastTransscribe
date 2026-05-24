@@ -5,6 +5,19 @@
 
   <div class="grid gap-6 max-w-lg">
     <div class="p-4 bg-gray-900 rounded-lg border border-gray-800">
+      <h2 class="font-semibold mb-3">Audiobookshelf</h2>
+      <label class="block text-sm mb-1">URL</label>
+      <input type="text" x-model="absUrl" class="w-full p-2 rounded bg-gray-800 border border-gray-700 text-sm mb-3" placeholder="http://192.168.1.x:13378">
+      <label class="block text-sm mb-1">API Key</label>
+      <input type="password" x-model="absApiKey" class="w-full p-2 rounded bg-gray-800 border border-gray-700 text-sm mb-3" placeholder="eyJ...">
+
+      <button @click="saveAndTestAbs()" :disabled="savingAbs" class="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 px-4 py-2 rounded text-sm font-medium">
+        <span x-text="savingAbs ? 'Testing...' : 'Save & Test Connection'"></span>
+      </button>
+      <span x-text="absStatus" class="text-sm ml-2" :class="absOk ? 'text-emerald-400' : 'text-red-400'"></span>
+    </div>
+
+    <div class="p-4 bg-gray-900 rounded-lg border border-gray-800">
       <h2 class="font-semibold mb-3">OpenRouter</h2>
       <label class="block text-sm mb-1">API Key</label>
       <input type="password" x-model="apiKey" class="w-full p-2 rounded bg-gray-800 border border-gray-700 text-sm mb-3" placeholder="sk-...">
@@ -202,11 +215,16 @@ function portalManager() {
 function adminView() {
   return {
     apiKey: '',
-      transcriptionModel: '',
-      summarizationModel: '',
-      embeddingModel: '',
-      selfHostedUrl: '',
-      saveStatus: '',
+    transcriptionModel: '',
+    summarizationModel: '',
+    embeddingModel: '',
+    selfHostedUrl: '',
+    absUrl: '',
+    absApiKey: '',
+    absStatus: '',
+    absOk: false,
+    savingAbs: false,
+    saveStatus: '',
     modelSaveStatus: '',
     saving: false,
     models: { transcription: [], chat: [], embedding: [] },
@@ -223,7 +241,38 @@ function adminView() {
       this.summarizationModel = data.summarization_model || '';
       this.embeddingModel = data.embedding_model || '';
       this.selfHostedUrl = data.self_hosted_whisper_url || '';
+      this.absUrl = data.abs_url || '';
+      this.absApiKey = data.abs_api_key || '';
       if (this.apiKey) await this.fetchModels();
+    },
+
+    async saveAndTestAbs() {
+      this.savingAbs = true;
+      this.absStatus = '';
+      this.absOk = false;
+      const body = {};
+      if (this.absUrl) body.abs_url = this.absUrl;
+      if (this.absApiKey) body.abs_api_key = this.absApiKey;
+
+      await fetch('/api/settings', {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(body),
+      });
+
+      try {
+        const r = await fetch('/api/settings/abs/test');
+        const data = await r.json();
+        if (data.ok) {
+          this.absStatus = 'Connection OK';
+          this.absOk = true;
+        } else {
+          this.absStatus = 'Error: ' + (data.error || 'Unknown');
+        }
+      } catch (e) {
+        this.absStatus = 'Request failed';
+      }
+      this.savingAbs = false;
     },
 
     async saveSettings() {

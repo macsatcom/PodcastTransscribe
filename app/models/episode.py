@@ -24,7 +24,12 @@ class Episode(Base):
     model_used: Mapped[str] = mapped_column(Text, nullable=True)
     processing_seconds: Mapped[int] = mapped_column(Integer, nullable=True)
     cost: Mapped[float] = mapped_column(Float, nullable=True)
+    abs_item_id: Mapped[str] = mapped_column(Text, nullable=True)
+    abs_episode_id: Mapped[str] = mapped_column(Text, nullable=True)
+    chapter_index: Mapped[int] = mapped_column(Integer, nullable=True)
+    media_type: Mapped[str] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     podcast = relationship("Podcast", back_populates="episodes")
     transcript = relationship("Transcript", back_populates="episode", uselist=False, cascade="all, delete-orphan")

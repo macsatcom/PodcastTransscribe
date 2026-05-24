@@ -19,6 +19,7 @@ def _serialize(episode: Episode) -> dict:
         "status": episode.status,
         "error_message": episode.error_message,
         "processing_seconds": episode.processing_seconds,
+        "media_type": episode.media_type,
         "created_at": episode.created_at.isoformat() if episode.created_at else None,
     }
 
@@ -40,19 +41,23 @@ async def get_queue(db: AsyncSession = Depends(get_db)):
         select(Episode).options(joinedload(Episode.podcast))
         .where(Episode.status.in_(RUNNING_STATUSES))
         .order_by(Episode.created_at.desc())
-        .limit(20)
+        .limit(50)
     )
     running_result = await db.execute(running_query)
     running = [_serialize(e) for e in running_result.scalars().all()]
 
-    queued_query = (
-        select(Episode).options(joinedload(Episode.podcast))
-        .where(Episode.status == "new")
-        .order_by(Episode.created_at.asc())
-        .limit(20)
-    )
-    queued_result = await db.execute(queued_query)
-    queued = [_serialize(e) for e in queued_result.scalars().all()]
+    queued_ids = episode_queue.get_queued_ids()
+    if queued_ids:
+        queued_query = (
+            select(Episode).options(joinedload(Episode.podcast))
+            .where(Episode.id.in_(queued_ids))
+            .order_by(Episode.created_at.asc())
+            .limit(200)
+        )
+        queued_result = await db.execute(queued_query)
+        queued = [_serialize(e) for e in queued_result.scalars().all()]
+    else:
+        queued = []
 
     error_query = (
         select(Episode).options(joinedload(Episode.podcast))
@@ -72,12 +77,19 @@ async def get_queue(db: AsyncSession = Depends(get_db)):
     done_result = await db.execute(done_query)
     done = [_serialize(e) for e in done_result.scalars().all()]
 
+    qm_status = episode_queue.status()
+
     return {
         "running": running,
         "queued": queued,
         "error": error,
         "done": done,
-        "counts": total_counts,
-        "total_counts": total_counts,
-        "queue_manager": episode_queue.status(),
+        "counts": {
+            "running": qm_status["running_count"],
+            "queued": len(queued),
+            "error": total_by_status.get("error", 0),
+            "done": total_by_status.get("ready", 0),
+            "new_total": total_by_status.get("new", 0),
+        },
+        "queue_manager": qm_status,
     }

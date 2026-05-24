@@ -42,6 +42,9 @@ async def list_podcasts(db: AsyncSession = Depends(get_db)):
             "cover_url": p.cover_url,
             "language": p.language,
             "auto_process": p.auto_process,
+            "media_type": p.media_type,
+            "abs_item_id": p.abs_item_id,
+            "narrator": p.narrator,
             "episode_count": counts.get(p.id, None).count if p.id in counts else 0,
             "latest_episode": counts.get(p.id, None).latest.isoformat() if p.id in counts and counts[p.id].latest else None,
         }
@@ -87,6 +90,9 @@ async def get_podcast(podcast_id: UUID, db: AsyncSession = Depends(get_db)):
         "cover_url": podcast.cover_url,
         "language": podcast.language,
         "auto_process": podcast.auto_process,
+        "media_type": podcast.media_type,
+        "abs_item_id": podcast.abs_item_id,
+        "narrator": podcast.narrator,
         "sources": [
             {
                 "id": str(c.id),
@@ -131,6 +137,9 @@ async def update_podcast(
         "cover_url": podcast.cover_url,
         "language": podcast.language,
         "auto_process": podcast.auto_process,
+        "media_type": podcast.media_type,
+        "abs_item_id": podcast.abs_item_id,
+        "narrator": podcast.narrator,
     }
 
 

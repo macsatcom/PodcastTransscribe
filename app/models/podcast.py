@@ -18,6 +18,9 @@ class Podcast(Base):
     cover_url: Mapped[str] = mapped_column(Text, nullable=True)
     language: Mapped[str] = mapped_column(Text, nullable=True)
     auto_process: Mapped[bool] = mapped_column(Boolean, default=True)
+    abs_item_id: Mapped[str] = mapped_column(Text, nullable=True)
+    media_type: Mapped[str] = mapped_column(Text, nullable=True)
+    narrator: Mapped[str] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

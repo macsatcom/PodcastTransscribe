@@ -1,67 +1,119 @@
 {% extends "base.html" %}
 {% block content %}
-<div x-data="dashboard()" x-init="loadPodcasts()">
+<div x-data="dashboard()" x-init="init()">
   <div class="flex items-center justify-between mb-6">
-    <h1 class="text-2xl font-bold">Podcasts</h1>
-    <button @click="showAdd = true" class="bg-emerald-600 hover:bg-emerald-500 px-4 py-2 rounded text-sm font-medium">+ Add Podcast</button>
+    <div class="flex gap-1.5">
+      <button @click="activeTab = 'podcasts'" class="text-sm px-4 py-2 rounded"
+              :class="activeTab === 'podcasts' ? 'bg-emerald-700 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'">Podcasts</button>
+      <button @click="activeTab = 'library'; selectFirstLibrary()" class="text-sm px-4 py-2 rounded"
+              :class="activeTab === 'library' ? 'bg-emerald-700 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'">Library</button>
+    </div>
+    <button x-show="activeTab === 'podcasts'" @click="showAdd = true" class="bg-emerald-600 hover:bg-emerald-500 px-4 py-2 rounded text-sm font-medium">+ Add Podcast</button>
   </div>
 
-  <div x-show="showAdd" x-cloak class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-    <form class="bg-gray-900 p-6 rounded-lg border border-gray-700 w-full max-w-md" @submit.prevent="addPodcast()">
-      <h2 class="text-lg font-bold mb-4">Add Podcast</h2>
-      <label class="block mb-2 text-sm">Title</label>
-      <input x-model="formTitle" required class="w-full mb-3 p-2 rounded bg-gray-800 border border-gray-700 text-sm">
-      <label class="block mb-2 text-sm">RSS URL</label>
-      <input x-model="formUrl" type="url" required class="w-full mb-3 p-2 rounded bg-gray-800 border border-gray-700 text-sm">
-      <label class="flex items-center gap-2 mb-4 text-sm">
-        <input x-model="formAuto" type="checkbox" checked class="rounded bg-gray-800 border-gray-600">
-        Auto-process episodes
+  <!-- Podcasts Tab -->
+  <div x-show="activeTab === 'podcasts'" x-cloak>
+    {% include "dashboard_podcasts.html" %}
+  </div>
+
+  <!-- Library Tab -->
+  <div x-show="activeTab === 'library'" x-cloak>
+    <div class="mb-4">
+      <select x-model="selectedLibrary" @change="loadItems()"
+              class="bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm w-full max-w-xs">
+        <option value="" disabled>Select library...</option>
+        <template x-for="lib in filteredLibraries" :key="lib.id">
+          <option :value="lib.id" x-text="lib.name"></option>
+        </template>
+      </select>
+      <p x-show="!loading && filteredLibraries.length === 0" class="text-xs text-gray-500 mt-1">
+        No libraries found for this media type. Check your Audiobookshelf connection in Admin.
+      </p>
+    </div>
+
+    <div x-show="selectedIds.length > 0" class="mb-4 flex items-center gap-3 p-3 bg-gray-900 rounded-lg border border-gray-800">
+      <label class="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer">
+        <input type="checkbox" @change="selectAll()" :checked="selectedIds.length === items.length && items.length > 0"
+               class="rounded bg-gray-800 border-gray-600">
+        Select All
       </label>
-      <div class="flex justify-end gap-2">
-        <button type="button" @click="showAdd = false" class="px-3 py-1.5 rounded bg-gray-700 text-sm">Cancel</button>
-        <button type="submit" class="px-3 py-1.5 rounded bg-emerald-600 text-sm">Add</button>
-      </div>
-    </form>
-  </div>
+      <button @click="transcribeSelected()" :disabled="transcribing"
+              class="bg-emerald-700 hover:bg-emerald-600 px-3 py-1.5 rounded text-xs font-medium disabled:opacity-50"
+              x-text="transcribing ? 'Enqueuing...' : 'Transcribe Selected (' + selectedIds.length + ')'">
+      </button>
+    </div>
 
-  <template x-if="loading">
-    <p class="text-gray-500">Loading...</p>
-  </template>
+    <div x-show="loading" class="text-gray-500">Loading...</div>
 
-  <div id="podcast-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-    <template x-for="p in podcasts" :key="p.id">
-      <div class="block p-4 bg-gray-900 rounded-lg border border-gray-800 hover:border-emerald-700 transition group relative">
-        <a :href="'/podcasts/' + p.id" class="block">
-          <div class="flex items-center gap-3">
-            <template x-if="p.cover_url">
-              <img :src="p.cover_url" class="w-12 h-12 rounded flex-shrink-0">
-            </template>
-            <div class="min-w-0 flex-1">
-              <div class="font-medium truncate" x-text="p.title"></div>
-              <div class="text-xs text-gray-500" x-text="p.author || ''"></div>
-              <div class="flex items-center gap-3 mt-1">
-                <span class="text-xs text-gray-600" x-text="p.episode_count + ' episodes'"></span>
-                <span x-show="p.latest_episode" class="text-xs text-gray-600" x-text="'Latest: ' + new Date(p.latest_episode).toLocaleDateString()"></span>
+    <div x-show="!loading" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      <template x-for="item in items" :key="item.id">
+        <div class="relative p-4 bg-gray-900 rounded-lg border border-gray-800 hover:border-emerald-700 transition group">
+          <template x-if="item.media_type !== 'ebook'">
+            <input type="checkbox" :checked="selectedIds.includes(item.id)"
+                   @change="toggleSelect(item.id)"
+                   class="absolute top-2 left-2 z-10 rounded bg-gray-800 border-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                   :class="{ 'opacity-100': selectedIds.includes(item.id) }">
+          </template>
+
+          <a :href="'/library/' + item.id" class="block">
+            <div class="flex items-center gap-3">
+              <template x-if="item.cover_url">
+                <img :src="item.cover_url" class="w-16 h-16 rounded flex-shrink-0 object-cover">
+              </template>
+              <template x-if="!item.cover_url">
+                <div class="w-16 h-16 rounded flex-shrink-0 bg-gray-800 flex items-center justify-center text-gray-600">
+                  <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                  </svg>
+                </div>
+              </template>
+              <div class="min-w-0 flex-1">
+                <div class="font-medium truncate text-sm" x-text="item.title"></div>
+                <div class="text-xs text-gray-500 truncate" x-text="item.author || ''"></div>
+                <div class="text-xs text-gray-600 mt-0.5">
+                  <span x-text="item.num_episodes + (item.media_type === 'podcast' ? ' episodes' : ' chapters')"></span>
+                </div>
               </div>
             </div>
+          </a>
+
+          <div class="flex items-center justify-between mt-3 pt-3 border-t border-gray-800">
+            <div class="min-w-0 flex-1">
+              <template x-if="item.media_type === 'ebook'">
+                <span class="text-xs px-2 py-0.5 rounded bg-gray-700 text-gray-400">e-book — not transcribable</span>
+              </template>
+              <template x-if="item.media_type !== 'ebook'">
+                <span class="text-xs px-2 py-0.5 rounded font-medium"
+                      :class="{
+                        'bg-gray-700 text-gray-400': item.transcribe_status === 'none',
+                        'bg-yellow-700 text-yellow-200': item.transcribe_status === 'partial',
+                        'bg-blue-700 text-blue-200': item.transcribe_status === 'processing',
+                        'bg-emerald-700 text-emerald-200': item.transcribe_status === 'done',
+                      }"
+                      x-text="item.transcribe_status === 'none' ? 'Not transcribed' : item.transcribe_status === 'partial' ? 'Partial' : item.transcribe_status === 'processing' ? 'Processing...' : 'Transcribed'">
+                </span>
+              </template>
+              <div x-show="item.latest_model" class="text-xs text-gray-600 mt-1 truncate" x-text="item.latest_model + (item.total_processing_seconds ? ' \\u00b7 ' + Math.round(item.total_processing_seconds / 60) + 'm' : '')"></div>
+            </div>
+
+            <label x-show="item.media_type === 'podcast'" class="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer" @click.prevent.stop>
+              <span>Auto</span>
+              <div class="relative inline-block w-8 h-4" @click="toggleAutoProcess(item)">
+                <div class="w-8 h-4 rounded-full transition-colors"
+                     :class="item.auto_process ? 'bg-emerald-600' : 'bg-gray-700'">
+                </div>
+                <div class="absolute top-0.5 left-0.5 w-3 h-3 rounded-full bg-white transition-transform"
+                     :class="item.auto_process ? 'translate-x-4' : ''">
+                </div>
+              </div>
+            </label>
           </div>
-        </a>
-        <button @click="confirmDelete(p)" class="absolute top-2 right-2 text-gray-600 hover:text-red-400 text-xs opacity-0 group-hover:opacity-100 transition">&times;</button>
-      </div>
-    </template>
-  </div>
-
-  <p x-show="!loading && podcasts.length === 0" class="text-gray-500">No podcasts yet. Add one to get started.</p>
-
-  <div x-show="deleteTarget" x-cloak class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-    <div class="bg-gray-900 p-6 rounded-lg border border-gray-700 w-full max-w-sm">
-      <h2 class="text-lg font-bold mb-2">Delete Podcast?</h2>
-      <p class="text-sm text-gray-400 mb-4" x-text="'This will permanently delete &quot;' + (deleteTarget?.title || '') + '&quot; and all its episodes.'"></p>
-      <div class="flex justify-end gap-2">
-        <button @click="deleteTarget = null" class="px-3 py-1.5 rounded bg-gray-700 text-sm">Cancel</button>
-        <button @click="deletePodcast()" class="px-3 py-1.5 rounded bg-red-700 text-sm" x-text="deleting ? 'Deleting...' : 'Delete'"></button>
-      </div>
+        </div>
+      </template>
     </div>
+
+    <p x-show="!loading && items.length === 0 && selectedLibrary" class="text-gray-500">No items found in this library.</p>
+    <p x-show="!loading && !selectedLibrary" class="text-gray-500">Select a library to browse items.</p>
   </div>
 </div>
 
@@ -69,28 +121,98 @@
 <script>
 function dashboard() {
   return {
+    activeTab: 'podcasts',
     showAdd: false,
-    loading: true,
+    loading: false,
     podcasts: [],
     formTitle: '',
     formUrl: '',
     formAuto: true,
     deleteTarget: null,
     deleting: false,
+    libraries: [],
+    selectedLibrary: '',
+    items: [],
+    selectedIds: [],
+    transcribing: false,
 
-    confirmDelete(p) {
-      this.deleteTarget = p;
+    get filteredLibraries() {
+      return this.libraries.filter(l => l.mediaType === 'podcast' || l.mediaType === 'book');
     },
 
-    async deletePodcast() {
-      if (!this.deleteTarget) return;
-      this.deleting = true;
-      const r = await fetch('/api/podcasts/' + this.deleteTarget.id, { method: 'DELETE' });
-      if (r.ok) {
-        this.podcasts = this.podcasts.filter(p => p.id !== this.deleteTarget.id);
+    selectFirstLibrary() {
+      if (this.filteredLibraries.length > 0) {
+        this.selectedLibrary = this.filteredLibraries[0].id;
+        this.loadItems();
+      } else {
+        this.selectedLibrary = '';
+        this.items = [];
+        this.loading = false;
       }
-      this.deleteTarget = null;
-      this.deleting = false;
+    },
+
+    async init() {
+      this.$watch('activeTab', val => {
+        if (val === 'library' && this.libraries.length === 0) {
+          this.loading = true;
+          fetch('/api/abs/libraries').then(r => r.json()).then(libs => {
+            if (Array.isArray(libs)) this.libraries = libs;
+            this.selectFirstLibrary();
+          }).catch(() => { this.loading = false; });
+        } else if (val === 'podcasts') {
+          this.loadPodcasts();
+        }
+      });
+      this.loadPodcasts();
+    },
+
+    async loadItems() {
+      if (!this.selectedLibrary) { this.loading = false; return; }
+      this.loading = true;
+      this.selectedIds = [];
+      const r = await fetch('/api/abs/library/' + this.selectedLibrary + '/items');
+      const data = await r.json();
+      this.items = data.items || [];
+      this.loading = false;
+    },
+
+    toggleSelect(id) {
+      const idx = this.selectedIds.indexOf(id);
+      if (idx > -1) this.selectedIds.splice(idx, 1);
+      else this.selectedIds.push(id);
+    },
+
+    selectAll() {
+      const selectable = this.items.filter(i => i.media_type !== 'ebook').map(i => i.id);
+      if (this.selectedIds.length === selectable.length) {
+        this.selectedIds = [];
+      } else {
+        this.selectedIds = selectable;
+      }
+    },
+
+    async toggleAutoProcess(item) {
+      await fetch('/api/abs/items/' + item.id + '/auto-process', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({auto_process: !item.auto_process}),
+      });
+      item.auto_process = !item.auto_process;
+    },
+
+    async transcribeSelected() {
+      if (this.selectedIds.length === 0) return;
+      this.transcribing = true;
+      const r = await fetch('/api/abs/items/enqueue-pending-batch', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({abs_item_ids: this.selectedIds}),
+      });
+      if (r.ok) {
+        this.selectedIds = [];
+        await this.loadItems();
+      }
+      this.transcribing = false;
     },
 
     async loadPodcasts() {
@@ -100,23 +222,24 @@ function dashboard() {
       this.loading = false;
     },
 
+    confirmDelete(p) { this.deleteTarget = p; },
+
+    async deletePodcast() {
+      if (!this.deleteTarget) return;
+      this.deleting = true;
+      const r = await fetch('/api/podcasts/' + this.deleteTarget.id, { method: 'DELETE' });
+      if (r.ok) this.podcasts = this.podcasts.filter(p => p.id !== this.deleteTarget.id);
+      this.deleteTarget = null;
+      this.deleting = false;
+    },
+
     async addPodcast() {
       const r = await fetch('/api/podcasts', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-          title: this.formTitle,
-          rss_url: this.formUrl,
-          auto_process: this.formAuto,
-        }),
+        body: JSON.stringify({title: this.formTitle, rss_url: this.formUrl, auto_process: this.formAuto}),
       });
-      if (r.ok) {
-        this.showAdd = false;
-        this.formTitle = '';
-        this.formUrl = '';
-        this.formAuto = true;
-        await this.loadPodcasts();
-      }
+      if (r.ok) { this.showAdd = false; this.formTitle = ''; this.formUrl = ''; this.formAuto = true; await this.loadPodcasts(); }
     }
   };
 }

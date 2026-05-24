@@ -17,6 +17,7 @@ router = APIRouter(prefix="/api/episodes", tags=["episodes"])
 async def list_episodes(
     podcast_id: UUID | None = None,
     status: str | None = None,
+    media_type: str | None = None,
     db: AsyncSession = Depends(get_db),
 ):
     query = select(Episode)
@@ -27,6 +28,8 @@ async def list_episodes(
             query = query.where(Episode.status.in_(["downloading", "transcribing", "summarizing", "indexing"]))
         else:
             query = query.where(Episode.status == status)
+    if media_type:
+        query = query.where(Episode.media_type == media_type)
     query = query.order_by(Episode.published_at.desc())
     result = await db.execute(query)
     episodes = result.scalars().all()
@@ -43,6 +46,10 @@ async def list_episodes(
             "model_used": e.model_used,
             "processing_seconds": e.processing_seconds,
             "cost": e.cost,
+            "media_type": e.media_type,
+            "abs_item_id": e.abs_item_id,
+            "abs_episode_id": e.abs_episode_id,
+            "chapter_index": e.chapter_index,
         }
         for e in episodes
     ]
