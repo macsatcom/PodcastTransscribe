@@ -1,14 +1,17 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import select, func
+from sqlalchemy import select, func, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.models.episode import Episode
 from app.models.podcast import Podcast
+from app.models.setting import Setting
 from app.models.topic import TopicCluster, EpisodeTopic
+from app.models.transcript import TranscriptChunk, Transcript
 from app.services.clustering import run_clustering
+from app.services.openrouter import OpenRouterClient, get_api_key
 from app.services.rag import ask_question
 
 router = APIRouter(prefix="/api/insights", tags=["insights"])
@@ -144,3 +147,53 @@ async def rag_query(
 async def refresh_clusters():
     await run_clustering()
     return {"status": "clustering started"}
+
+
+@router.post("/topics/create")
+async def create_topic(body: dict, db: AsyncSession = Depends(get_db)):
+    label = body.get("label", "").strip()
+    if not label:
+        return {"error": "label is required"}
+
+    model_setting = await db.get(Setting, "embedding_model")
+    model = model_setting.value if model_setting else "openai/text-embedding-3-small"
+    api_key = await get_api_key(db)
+
+    async with OpenRouterClient(api_key=api_key) as client:
+        embedding = await client.embed(model, label)
+
+    topic = TopicCluster(label=label, embedding=embedding, source="manual")
+    db.add(topic)
+    await db.flush()
+
+    embedding_str = "'[" + ",".join(str(v) for v in embedding) + "]'::vector"
+    rows = await db.execute(
+        select(Episode.id, func.avg(TranscriptChunk.embedding).label("avg_emb"))
+        .join(Transcript, Transcript.episode_id == Episode.id)
+        .join(TranscriptChunk, TranscriptChunk.transcript_id == Transcript.id)
+        .where(TranscriptChunk.embedding.is_not(None))
+        .group_by(Episode.id)
+    )
+    for r in rows.all():
+        dist = await db.execute(
+            select(text(f"1.0 - ({embedding_str} <=> :avg_vec)::float"))
+            .params(avg_vec=r.avg_emb)
+        )
+        score = dist.scalar_one()
+        if score and score > 0.65:
+            db.add(EpisodeTopic(topic_id=topic.id, episode_id=r.id, score=round(score, 3)))
+
+    await db.commit()
+    return {"id": str(topic.id), "label": label, "source": "manual"}
+
+
+@router.delete("/topics/{topic_id}")
+async def delete_topic(topic_id: UUID, db: AsyncSession = Depends(get_db)):
+    topic = await db.get(TopicCluster, topic_id)
+    if not topic:
+        return {"error": "not found"}
+    if topic.source != "manual":
+        return {"error": "cannot delete auto-generated topics"}
+    await db.delete(topic)
+    await db.commit()
+    return {"status": "deleted"}
