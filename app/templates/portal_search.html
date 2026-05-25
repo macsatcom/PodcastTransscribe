@@ -1,68 +1,216 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="da">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{ portal.title }}</title>
   <script src="https://unpkg.com/alpinejs@3.14.8" defer></script>
-  <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    body { margin: 0; min-height: 100vh; }
-    .bg-gradient { background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #0f172a 100%); }
-    .bg-overlay { background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.85)); }
+    :root {
+      --bg-body: #0f172a;
+      --bg-card: rgba(0,0,0,0.42);
+      --bg-card-hover: rgba(0,0,0,0.58);
+      --bg-input: rgba(0,0,0,0.48);
+      --border: rgba(255,255,255,0.10);
+      --text: #f1f5f9;
+      --text-secondary: #94a3b8;
+      --text-dim: #64748b;
+      --accent: #10b981;
+      --accent-hover: #059669;
+      --red: #f87171;
+      --blue-tag: #1d4ed8;
+      --green-tag: #047857;
+      --radius: 12px;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+      background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #0f172a 100%);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+    body.has-bg {
+      background: none;
+    }
+    .bg-image {
+      position: fixed; inset: 0; z-index: -1;
+      background-position: center; background-size: cover;
+    }
+    .overlay {
+      min-height: 100vh;
+    }
+    .overlay.has-bg {
+      background: linear-gradient(rgba(0,0,0,0.60), rgba(0,0,0,0.85));
+    }
+    .container {
+      max-width: 860px; margin: 0 auto; padding: 48px 20px;
+    }
+    .header {
+      text-align: center; margin-bottom: 48px;
+    }
+    .header h1 {
+      font-size: 2.25rem; font-weight: 700; letter-spacing: -0.02em;
+      margin-bottom: 8px; color: #fff;
+    }
+    .header p {
+      font-size: 1.05rem; color: var(--text-secondary);
+    }
+    .header-logo {
+      width: 72px; height: 72px; border-radius: 12px;
+      object-fit: cover; margin-bottom: 16px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+    }
+    .search-form {
+      display: flex; flex-direction: column; gap: 14px;
+      margin-bottom: 36px;
+    }
+    .search-form label {
+      font-size: 0.75rem; font-weight: 600; color: var(--text-secondary);
+      text-transform: uppercase; letter-spacing: 0.06em;
+      display: block; margin-bottom: 6px;
+    }
+    .search-form input,
+    .search-form textarea {
+      width: 100%; padding: 14px 16px;
+      font-size: 1rem; color: var(--text);
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      outline: none; font-family: inherit;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .search-form input:focus,
+    .search-form textarea:focus {
+      border-color: var(--accent);
+      background: rgba(0,0,0,0.60);
+    }
+    .search-form input::placeholder,
+    .search-form textarea::placeholder {
+      color: var(--text-dim);
+    }
+    .search-form textarea {
+      resize: vertical; min-height: 110px;
+    }
+    .btn-search {
+      display: inline-flex; align-items: center; justify-content: center;
+      padding: 14px 48px;
+      font-size: 1rem; font-weight: 600;
+      color: #fff; background: var(--accent);
+      border: none; border-radius: var(--radius);
+      cursor: pointer; font-family: inherit;
+      transition: background 0.2s, transform 0.1s;
+      align-self: center;
+    }
+    .btn-search:hover { background: var(--accent-hover); }
+    .btn-search:active { transform: scale(0.97); }
+    .results { display: flex; flex-direction: column; gap: 12px; }
+    .result-card {
+      display: block; padding: 18px 20px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      text-decoration: none; color: inherit;
+      transition: background 0.2s, border-color 0.2s;
+      -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+    }
+    .result-card:hover {
+      background: var(--bg-card-hover);
+      border-color: rgba(255,255,255,0.25);
+    }
+    .result-header {
+      display: flex; align-items: flex-start; gap: 12px;
+    }
+    .result-cover {
+      width: 44px; height: 44px; border-radius: 6px;
+      object-fit: cover; flex-shrink: 0;
+    }
+    .result-body { flex: 1; min-width: 0; }
+    .result-title-row {
+      display: flex; align-items: center; gap: 8px;
+      margin-bottom: 6px;
+    }
+    .result-title {
+      font-size: 0.9rem; font-weight: 600; color: #fff;
+    }
+    .tag {
+      font-size: 0.688rem; font-weight: 600;
+      padding: 2px 8px; border-radius: 4px;
+      flex-shrink: 0;
+    }
+    .tag-fts { background: var(--blue-tag); color: #bfdbfe; }
+    .tag-semantic { background: var(--green-tag); color: #a7f3d0; }
+    .result-snippet {
+      font-size: 0.813rem; color: var(--text-secondary);
+      line-height: 1.6; margin-top: 4px;
+    }
+    .result-snippet mark {
+      background: rgba(16,185,129,0.3); color: #fff;
+      padding: 1px 3px; border-radius: 2px;
+    }
+    .result-meta {
+      font-size: 0.75rem; color: var(--text-dim);
+      margin-top: 6px;
+    }
+    .empty { text-align: center; padding: 32px; color: var(--text-dim); font-size: 0.9rem; }
+    .spinner {
+      display: inline-block; width: 20px; height: 20px;
+      border: 2px solid rgba(255,255,255,0.2);
+      border-top-color: var(--accent);
+      border-radius: 50%; animation: spin 0.6s linear infinite;
+      margin-right: 8px; vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    [x-cloak] { display: none !important; }
   </style>
 </head>
-<body class="text-white"
-      x-data="searchView()"
-      :class="hasBg ? '' : 'bg-gradient'"
-      :style="hasBg ? 'background: url(' + bgImage + ') center/cover fixed no-repeat; background-size: cover; min-height: 100vh;' : ''">
+<body :class="hasBg ? 'has-bg' : ''"
+      x-data="searchView()" x-cloak>
 
-  <div :class="hasBg ? 'bg-overlay' : ''" style="min-height:100vh">
-    <div class="mx-auto max-w-4xl px-4 py-12">
-      <div class="text-center mb-10">
-        <h1 class="text-4xl font-bold mb-3" x-text="portal.title"></h1>
-        <p x-show="portal.description" class="text-lg text-gray-300" x-text="portal.description"></p>
+  <div x-show="hasBg" class="bg-image" :style="'background-image: url(' + bgImage + ')'"></div>
+
+  <div class="overlay" :class="hasBg ? 'has-bg' : ''">
+    <div class="container">
+      <div class="header">
+        <img x-show="portal.secondary_image" :src="portal.secondary_image" class="header-logo">
+        <h1 x-text="portal.title"></h1>
+        <p x-show="portal.description" x-text="portal.description"></p>
       </div>
 
-      <div class="space-y-3 mb-8">
+      <div class="search-form">
         <div>
-          <label class="text-xs text-gray-400 mb-1 block">Nøgleord</label>
+          <label>Keywords</label>
           <input type="text" x-model="keyword" @keyup.enter="doSearch()"
-                 placeholder="f.eks. hund, ulv, klima..."
-                 class="w-full p-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder-gray-400 text-lg">
+                 placeholder="climate change, renewable energy, artificial intelligence...">
         </div>
         <div>
-          <label class="text-xs text-gray-400 mb-1 block">Naturligt sprog</label>
+          <label>Natural language</label>
           <textarea x-model="natural" @keydown.enter.prevent="doSearch()"
-                    placeholder="f.eks. Vicky og Johan taler om ulve..."
-                    class="w-full p-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder-gray-400 text-lg resize-none"
-                    rows="4"></textarea>
+                    placeholder="a conversation about the history of space exploration and Mars missions..."></textarea>
         </div>
-        <div class="flex justify-center">
-          <button @click="doSearch()" class="px-8 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-medium">Search</button>
-        </div>
+        <button @click="doSearch()" class="btn-search">Search</button>
       </div>
 
-      <div id="results" class="space-y-4">
-        <p x-show="searched && !loading && results.length === 0" class="text-center text-gray-400">No results found.</p>
+      <div class="results">
+        <p x-show="searched && !loading && results.length === 0" class="empty">No results found.</p>
+        <p x-show="loading" class="empty"><span class="spinner"></span>Searching...</p>
         <template x-for="r in results" :key="r.episode_id + (r.chunk_index || '')">
           <a :href="'/episodes/' + r.episode_id + '?q=' + encodeURIComponent(keyword || natural)"
-             class="block p-4 rounded-lg bg-white/10 backdrop-blur hover:bg-white/20 transition border border-white/10">
-            <div class="flex items-start gap-3">
+             class="result-card">
+            <div class="result-header">
               <template x-if="r.cover_url">
-                <img :src="r.cover_url" class="w-10 h-10 rounded flex-shrink-0">
+                <img :src="r.cover_url" class="result-cover">
               </template>
-              <div class="flex-1">
-                <div class="flex items-center gap-2">
-                  <div class="text-sm font-semibold" x-text="r.episode_title"></div>
-                  <span class="text-xs px-1.5 py-0.5 rounded"
-                        :class="r.type === 'fts' ? 'bg-blue-700 text-blue-200' : 'bg-emerald-700 text-emerald-200'"
-                        x-text="r.type === 'fts' ? 'Nøgleord' : 'Semantisk'">
-                  </span>
+              <div class="result-body">
+                <div class="result-title-row">
+                  <span class="result-title" x-text="r.episode_title"></span>
+                  <span class="tag" :class="r.type === 'fts' ? 'tag-fts' : 'tag-semantic'"
+                        x-text="r.type === 'fts' ? 'Keyword' : 'Semantic'"></span>
                 </div>
-                <div class="text-xs text-gray-300 mt-1 leading-relaxed" x-html="r.snippet"></div>
-                <div class="text-xs text-gray-500 mt-1">
-                  <span x-text="r.type === 'fts' ? 'Match: ' + keyword : 'Relevans: ' + (r.score || 0).toFixed(2)"></span>
+                <div class="result-snippet" x-html="r.snippet"></div>
+                <div class="result-meta">
+                  <span x-text="r.type === 'fts' ? 'Match: ' + keyword : 'Relevance: ' + (r.score || 0).toFixed(2)"></span>
                 </div>
               </div>
             </div>
@@ -76,8 +224,8 @@
     function searchView() {
       return {
         portal: { title: {{ portal.title|tojson }}, description: {{ portal.description|tojson }}, background_image: {{ portal.background_image|tojson }}, secondary_image: {{ portal.secondary_image|tojson }}, podcast_ids: {{ portal.podcast_ids|tojson }} },
-        bgImage: '{{ portal.background_image or "" }}' || '{{ portal.secondary_image or "" }}',
-        hasBg: ('{{ portal.background_image or "" }}' || '{{ portal.secondary_image or "" }}') ? true : false,
+        bgImage: '{{ portal.background_image or portal.secondary_image or "" }}',
+        hasBg: !!({{ portal.background_image|tojson }} || {{ portal.secondary_image|tojson }}),
         keyword: '',
         natural: '',
         loading: false,

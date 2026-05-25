@@ -141,6 +141,11 @@
               </template>
             </div>
           </div>
+          <label class="flex items-center gap-3 text-sm cursor-pointer" style="padding:4px 0;">
+            <input type="checkbox" x-model="form.enabled" class="checkbox">
+            <span class="font-medium">Start on boot</span>
+            <span class="text-2xs text-tertiary">Automatically start when container restarts</span>
+          </label>
           <div class="flex gap-2">
             <button @click="editing ? updatePortal() : createPortal()" class="btn btn-primary btn-sm"
                     x-text="editing ? 'Update' : 'Create'"></button>
@@ -158,6 +163,8 @@
             </div>
             <div class="flex items-center gap-2">
               <span class="badge" :class="p.running ? 'badge-green' : 'badge-gray'" x-text="p.running ? 'Running' : 'Stopped'"></span>
+              <button @click="toggleBoot(p)" class="btn btn-ghost btn-sm" style="font-size:0.75rem;padding:2px 8px;" x-text="p.enabled ? 'Boot: on' : 'Boot: off'"
+                      :class="p.enabled ? 'text-accent' : 'text-secondary'"></button>
               <button @click="editPortal(p)" class="btn btn-ghost btn-sm text-accent">Edit</button>
               <button @click="togglePortal(p)" class="btn btn-ghost btn-sm" :class="p.running ? 'text-red' : 'text-accent'" x-text="p.running ? 'Stop' : 'Start'"></button>
               <button @click="deletePortal(p)" class="btn btn-ghost btn-sm text-red">Delete</button>
@@ -173,12 +180,12 @@
 function portalManager() {
   return {
     showForm: false, editing: null, portals: [], podcasts: [],
-    form: { title: '', port: 9001, description: '', podcast_ids: [], background_image: '', secondary_image: '' },
+    form: { title: '', port: 9001, description: '', podcast_ids: [], background_image: '', secondary_image: '', enabled: true },
 
     async loadPortals() {
       const [pr, pdr] = await Promise.all([fetch('/api/portals'), fetch('/api/podcasts')]);
       this.portals = await pr.json();
-      this.podcasts = await pdr.json();
+      this.podcasts = (await pdr.json()).filter(p => p.media_type !== 'ebook' && p.ready_count > 0);
     },
 
     togglePodcast(id) {
@@ -194,6 +201,7 @@ function portalManager() {
         podcast_ids: [...(p.podcast_ids || [])],
         background_image: p.background_image || '',
         secondary_image: p.secondary_image || '',
+        enabled: p.enabled || false,
       };
       this.showForm = true;
     },
@@ -206,7 +214,7 @@ function portalManager() {
           await this._uploadImages(data.id);
         }
       }
-      this.showForm = false; this.form = { title: '', port: 9001, description: '', podcast_ids: [], background_image: '', secondary_image: '' };
+      this.showForm = false; this.form = { title: '', port: 9001, description: '', podcast_ids: [], background_image: '', secondary_image: '', enabled: true };
       await this.loadPortals();
     },
 
@@ -216,7 +224,7 @@ function portalManager() {
         await this._uploadImages(this.editing);
       }
       this.showForm = false; this.editing = null;
-      this.form = { title: '', port: 9001, description: '', podcast_ids: [], background_image: '', secondary_image: '' };
+      this.form = { title: '', port: 9001, description: '', podcast_ids: [], background_image: '', secondary_image: '', enabled: true };
       await this.loadPortals();
     },
 
@@ -235,6 +243,10 @@ function portalManager() {
     },
 
     async togglePortal(p) { await fetch('/api/portals/' + p.id + '/' + (p.running ? 'stop' : 'start'), { method: 'POST' }); await this.loadPortals(); },
+    async toggleBoot(p) {
+      await fetch('/api/portals/' + p.id, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({enabled: !p.enabled}) });
+      p.enabled = !p.enabled;
+    },
     async deletePortal(p) { await fetch('/api/portals/' + p.id, { method: 'DELETE' }); await this.loadPortals(); },
   };
 }

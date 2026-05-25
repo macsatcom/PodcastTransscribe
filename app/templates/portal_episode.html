@@ -1,39 +1,129 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="da">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{{ portal.title }}</title>
+  <title>{{ portal.title }} — Episode</title>
   <script src="https://unpkg.com/alpinejs@3.14.8" defer></script>
-  <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    body { margin: 0; min-height: 100vh; }
-    .bg-gradient { background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #0f172a 100%); }
-    .bg-overlay { background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.85)); }
-    mark { background-color: #059669; color: #fff; padding: 0 2px; border-radius: 2px; }
+    :root {
+      --bg-body: #0f172a;
+      --bg-card: rgba(0,0,0,0.42);
+      --bg-input: rgba(0,0,0,0.48);
+      --border: rgba(255,255,255,0.10);
+      --text: #f1f5f9;
+      --text-secondary: #94a3b8;
+      --text-dim: #64748b;
+      --accent: #10b981;
+      --radius: 12px;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+      background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #0f172a 100%);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+    body.has-bg { background: none; }
+    .bg-image {
+      position: fixed; inset: 0; z-index: -1;
+      background-position: center; background-size: cover;
+    }
+    .overlay { min-height: 100vh; }
+    .overlay.has-bg {
+      background: linear-gradient(rgba(0,0,0,0.60), rgba(0,0,0,0.85));
+    }
+    .container {
+      max-width: 860px; margin: 0 auto; padding: 40px 20px;
+    }
+    .back-link {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 0.875rem; color: var(--accent); text-decoration: none;
+      font-weight: 500; margin-bottom: 24px;
+      transition: color 0.2s;
+    }
+    .back-link:hover { color: #34d399; }
+    .back-link svg { width: 14px; height: 14px; }
+    .page-logo {
+      width: 56px; height: 56px; border-radius: 10px;
+      object-fit: cover; margin-bottom: 20px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    }
+    .episode-title {
+      font-size: 1.75rem; font-weight: 700; color: #fff;
+      margin-bottom: 6px; letter-spacing: -0.01em;
+    }
+    .episode-date {
+      font-size: 0.813rem; color: var(--text-dim);
+      margin-bottom: 28px;
+    }
+    .summary-card {
+      padding: 18px 20px; margin-bottom: 24px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+    }
+    .summary-card h2 {
+      font-size: 0.8rem; font-weight: 700;
+      color: var(--accent); text-transform: uppercase;
+      letter-spacing: 0.06em; margin-bottom: 10px;
+    }
+    .summary-card p {
+      font-size: 0.9rem; color: var(--text-secondary);
+      line-height: 1.6;
+    }
+    .transcript {
+      font-size: 0.888rem; color: var(--text-secondary);
+      line-height: 1.75; white-space: pre-wrap; word-wrap: break-word;
+    }
+    .transcript mark {
+      background: rgba(16,185,129,0.3); color: #fff;
+      padding: 1px 3px; border-radius: 2px;
+    }
+    .loading { text-align: center; padding: 48px; color: var(--text-dim); font-size: 0.9rem; }
+    .spinner {
+      display: inline-block; width: 20px; height: 20px;
+      border: 2px solid rgba(255,255,255,0.2);
+      border-top-color: var(--accent);
+      border-radius: 50%; animation: spin 0.6s linear infinite;
+      margin-right: 8px; vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    [x-cloak] { display: none !important; }
   </style>
 </head>
-<body class="text-white"
-      x-data="episodeView()" x-init="loadEpisode()"
-      :class="hasBg ? '' : 'bg-gradient'"
-      :style="hasBg ? 'background: url(' + bgImage + ') center/cover fixed no-repeat; background-size: cover; min-height: 100vh;' : ''">
+<body :class="hasBg ? 'has-bg' : ''"
+      x-data="episodeView()" x-init="loadEpisode()" x-cloak>
 
-  <div :class="hasBg ? 'bg-overlay' : ''" style="min-height:100vh">
-    <div class="mx-auto max-w-4xl px-4 py-8">
-      <a href="/" class="text-emerald-400 hover:text-emerald-300 text-sm mb-4 inline-block">&larr; Back to search</a>
+  <div x-show="hasBg" class="bg-image" :style="'background-image: url(' + bgImage + ')'"></div>
+
+  <div class="overlay" :class="hasBg ? 'has-bg' : ''">
+    <div class="container">
+      <img x-show="secImage" :src="secImage" class="page-logo">
+
+      <a href="/" class="back-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <polyline points="15 18 9 12 15 6"/>
+        </svg>
+        Back to search
+      </a>
 
       <div x-show="!loading">
-        <h1 class="text-2xl font-bold mb-2" x-text="episode.title"></h1>
-        <p class="text-gray-400 text-sm mb-6" x-text="episode.published_at || ''"></p>
+        <h1 class="episode-title" x-text="episode.title"></h1>
+        <p class="episode-date" x-text="episode.published_at ? new Date(episode.published_at).toLocaleDateString(undefined, {day:'numeric', month:'long', year:'numeric'}) : ''"></p>
 
-        <div x-show="summary" class="mb-6 p-4 rounded-lg bg-white/10 backdrop-blur border border-white/10">
-          <h2 class="text-sm font-semibold text-emerald-400 mb-2">Summary</h2>
-          <div class="text-sm leading-relaxed" x-text="summary"></div>
+        <div x-show="summary" class="summary-card">
+          <h2>Summary</h2>
+          <p x-text="summary"></p>
         </div>
 
-        <div class="text-sm leading-relaxed whitespace-pre-wrap" x-html="highlightedText"></div>
+        <div class="transcript" x-html="highlightedText"></div>
       </div>
-      <p x-show="loading" class="text-gray-400 text-center py-12">Loading...</p>
+
+      <div x-show="loading" class="loading"><span class="spinner"></span>Loading...</div>
     </div>
   </div>
 
@@ -41,8 +131,9 @@
     function episodeView() {
       return {
         episodeId: '{{ episode_id }}',
-        bgImage: '{{ portal.background_image or "" }}' || '{{ portal.secondary_image or "" }}',
-        hasBg: ('{{ portal.background_image or "" }}' || '{{ portal.secondary_image or "" }}') ? true : false,
+        bgImage: '{{ portal.background_image or portal.secondary_image or "" }}',
+        secImage: {{ portal.secondary_image|tojson }},
+        hasBg: !!({{ portal.background_image|tojson }} || {{ portal.secondary_image|tojson }}),
         loading: true,
         episode: {},
         summary: '',

@@ -93,3 +93,9 @@ async def get_queue(db: AsyncSession = Depends(get_db)):
         },
         "queue_manager": qm_status,
     }
+
+
+@router.post("/queue/clear")
+async def clear_queue():
+    episode_queue.clear()
+    return {"status": "cleared"}

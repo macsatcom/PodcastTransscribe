@@ -44,12 +44,12 @@ class EpisodeQueue:
     def enqueue_episode(self, episode_id):
         self._enqueue(str(episode_id))
 
-    async def enqueue_all_pending(self):
+    async def enqueue_all_pending(self, limit: int = 500) -> int:
         async with async_session() as session:
             result = await session.execute(
                 select(Episode.id).where(
                     Episode.status.in_(["new", "error"])
-                ).order_by(Episode.created_at.asc())
+                ).order_by(Episode.created_at.asc()).limit(limit)
             )
             ids = [str(row[0]) for row in result.all()]
         if ids:
@@ -135,6 +135,15 @@ class EpisodeQueue:
 
     def get_queued_ids(self) -> list[str]:
         return list(self._enqueued_ids)
+
+    def clear(self):
+        while not self._queue.empty():
+            try:
+                self._queue.get_nowait()
+            except asyncio.QueueEmpty:
+                break
+        self._enqueued_ids.clear()
+        logger.info("Queue cleared — all items removed")
 
     def status(self) -> dict:
         return {

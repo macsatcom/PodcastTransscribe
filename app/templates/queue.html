@@ -19,8 +19,11 @@
       </div>
     </div>
     <div class="flex items-center gap-3">
-      <button @click="processAllPending()" class="btn btn-primary" :disabled="processingAll"
+      <button @click="processAllPending()" class="btn btn-primary btn-sm" :disabled="processingAll"
               x-text="processingAll ? 'Enqueuing...' : 'Process All Pending'">
+      </button>
+      <button @click="clearQueue()" class="btn btn-danger btn-sm" :disabled="clearing || qm.queue_size === 0"
+              x-text="clearing ? 'Clearing...' : 'Clear Queue'">
       </button>
       <div class="flex items-center gap-4">
         <span x-show="counts.running > 0" class="flex items-center gap-2 text-sm font-medium" style="color:#539df5;">
@@ -109,7 +112,7 @@ function queueView() {
   return {
     running: [], queued: [], error: [], done: [],
     counts: { running: 0, queued: 0, error: 0, done: 0, new_total: 0 },
-    qm: {}, pollTimer: null, processingAll: false,
+    qm: {}, pollTimer: null, processingAll: false, clearing: false,
 
     totalItems() { return this.running.length + this.queued.length + this.error.length + this.done.length; },
 
@@ -118,6 +121,13 @@ function queueView() {
       try { await fetch('/api/episodes/process-all-pending', { method: 'POST' }); await this.loadQueue(); }
       catch (e) { console.error('Failed to enqueue', e); }
       this.processingAll = false;
+    },
+
+    async clearQueue() {
+      this.clearing = true;
+      try { await fetch('/api/queue/clear', { method: 'POST' }); await this.loadQueue(); }
+      catch (e) { console.error('Failed to clear queue', e); }
+      this.clearing = false;
     },
 
     async loadQueue() {
