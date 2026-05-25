@@ -36,6 +36,8 @@ async def search_fts(
         conditions.append(text("e.media_type = :media_type"))
         params["media_type"] = media_type
 
+    conditions.append(text("e.media_type != 'ebook'"))
+
     where_clause = " AND ".join(str(c) for c in conditions)
 
     sql = text(f"""
@@ -85,7 +87,7 @@ async def search_semantic(
 
     embedding_str = "'[" + ",".join(str(v) for v in query_embedding) + "]'::vector"
 
-    conditions = ["1=1"]
+    conditions = [f"chunk.embedding <=> {embedding_str} < 0.5"]
     params: dict = {}
     if podcast_ids:
         conditions.append("e.podcast_id = ANY(:podcast_ids)")
@@ -96,6 +98,8 @@ async def search_semantic(
     if media_type:
         conditions.append("e.media_type = :media_type")
         params["media_type"] = media_type
+
+    conditions.append("e.media_type != 'ebook'")
 
     where_clause = " AND ".join(conditions)
 

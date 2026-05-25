@@ -8,6 +8,17 @@
 
   <div class="flex flex-col gap-8">
 
+    <!-- Filter -->
+    <div class="flex items-center gap-4" style="margin-top:-12px;">
+      <label class="text-xs font-medium text-secondary">Filter by podcast:</label>
+      <select x-model="selectedPodcast" @change="onPodcastChange()" class="select" style="max-width:320px;">
+        <option value="">All podcasts</option>
+        <template x-for="p in podcastList" :key="p.id">
+          <option :value="p.id" x-text="p.title"></option>
+        </template>
+      </select>
+    </div>
+
     <!-- RAG: Ask a Question -->
     <div class="card" style="padding:20px;">
       <h2 class="section-title mb-3">Ask a Question</h2>
@@ -149,6 +160,7 @@ function insightsView() {
     ragQuestion: '', ragAnswer: '', ragSources: [], ragLoading: false,
     comparisonTopics: [], comparisonPodcasts: [], comparisonPodcastIds: [], comparisonLoading: false,
     episodeModal: false, episodeModalList: [], episodeModalTopic: null,
+    selectedPodcast: '', podcastList: [],
 
     get filteredTopics() {
       if (!this.topicFilter) return this.topics;
@@ -157,13 +169,32 @@ function insightsView() {
     },
 
     async init() {
-      await Promise.all([this.loadTopics(), this.loadComparison()]);
+      await Promise.all([this.loadPodcasts(), this.loadTopics(), this.loadComparison()]);
       this.loading = false;
+    },
+
+    async loadPodcasts() {
+      try {
+        const r = await fetch('/api/podcasts');
+        this.podcastList = (await r.json()).filter(p => p.media_type !== 'ebook');
+      } catch(e) { console.error(e); }
+    },
+
+    onPodcastChange() {
+      this.loading = true;
+      this.loadTopics();
+      this.loadComparison();
+      this.loading = false;
+    },
+
+    get activePodcastId() {
+      return this.selectedPodcast || null;
     },
 
     async loadTopics() {
       try {
-        const r = await fetch('/api/insights/topics');
+        const params = this.activePodcastId ? '?podcast_ids=' + this.activePodcastId : '';
+        const r = await fetch('/api/insights/topics' + params);
         this.topics = await r.json();
       } catch(e) { console.error(e); }
     },
@@ -186,7 +217,8 @@ function insightsView() {
     },
 
     async viewTopicEpisodes(t) {
-      const r = await fetch('/api/insights/topics/' + t.id + '/episodes');
+      const params = this.activePodcastId ? '?podcast_ids=' + this.activePodcastId : '';
+      const r = await fetch('/api/insights/topics/' + t.id + '/episodes' + params);
       this.episodeModalList = await r.json();
       this.episodeModalTopic = t;
       this.episodeModal = true;
@@ -204,10 +236,12 @@ function insightsView() {
       this.ragAnswer = '';
       this.ragSources = [];
       try {
+        const body = {question: this.ragQuestion};
+        if (this.activePodcastId) body.podcast_ids = [this.activePodcastId];
         const r = await fetch('/api/insights/rag', {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({question: this.ragQuestion}),
+          body: JSON.stringify(body),
         });
         const data = await r.json();
         this.ragAnswer = data.answer || 'No answer.';
@@ -219,7 +253,8 @@ function insightsView() {
     async loadComparison() {
       this.comparisonLoading = true;
       try {
-        const r = await fetch('/api/insights/comparison');
+        const params = this.activePodcastId ? '?podcast_ids=' + this.activePodcastId : '';
+        const r = await fetch('/api/insights/comparison' + params);
         const data = await r.json();
         this.comparisonTopics = data.topics || [];
         this.comparisonPodcasts = data.podcasts || [];

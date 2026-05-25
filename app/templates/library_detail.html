@@ -51,15 +51,17 @@
     </div>
 
     <div class="flex items-center gap-3 mb-4">
-      <label class="flex items-center gap-2 text-xs font-medium text-secondary cursor-pointer">
-        <input type="checkbox" @change="selectAll($event)" class="checkbox"> Select all
-      </label>
-      <button @click="transcribeSelected()" x-show="selectedIds.length > 0" :disabled="transcribing"
-              class="btn btn-primary btn-sm" x-text="'Transcribe Selected (' + selectedIds.length + ')'">
-      </button>
-    </div>
+       <label class="flex items-center gap-2 text-xs font-medium text-secondary cursor-pointer">
+         <input type="checkbox" :checked="allFilteredSelected" @change="toggleSelectAll()" class="checkbox"> Select all
+       </label>
+       <button @click="transcribeSelected()" x-show="selectedIds.length > 0" :disabled="transcribing"
+               class="btn btn-primary btn-sm" x-text="'Transcribe Selected (' + selectedIds.length + ')'">
+       </button>
+     </div>
 
-    <div class="tabs mb-4">
+     <input type="text" x-model="filterText" placeholder="Filter episodes..." class="input input-pill mb-4">
+
+     <div class="tabs mb-4">
       <template x-for="s in statusFilters" :key="s.key">
         <button @click="statusFilter = s.key" class="tab" :class="{ active: statusFilter === s.key }" x-text="s.label"></button>
       </template>
@@ -130,6 +132,7 @@ function itemDetail() {
     transcribing: false,
     autoProcess: false,
     statusFilter: 'all',
+    filterText: '',
     statusFilters: [
       {key: 'all', label: 'All'},
       {key: 'new', label: 'New'},
@@ -139,11 +142,21 @@ function itemDetail() {
     ],
 
     get filteredEpisodes() {
-      if (this.statusFilter === 'all') return this.episodes;
-      if (this.statusFilter === 'processing') {
-        return this.episodes.filter(e => ['processing','downloading','transcribing','summarizing','indexing'].includes(e.status));
+      let list = this.episodes;
+      if (this.filterText) {
+        const q = this.filterText.toLowerCase();
+        list = list.filter(e => e.title && e.title.toLowerCase().includes(q));
       }
-      return this.episodes.filter(e => e.status === this.statusFilter);
+      if (this.statusFilter === 'all') return list;
+      if (this.statusFilter === 'processing') {
+        return list.filter(e => ['processing','downloading','transcribing','summarizing','indexing'].includes(e.status));
+      }
+      return list.filter(e => e.status === this.statusFilter);
+    },
+
+    get allFilteredSelected() {
+      const selectable = this.filteredEpisodes.filter(e => e.our_episode_id);
+      return selectable.length > 0 && selectable.every(e => this.selectedIds.includes(e.our_episode_id));
     },
 
     formatDuration(seconds) {
@@ -184,9 +197,14 @@ function itemDetail() {
       this.transcribing = false;
     },
 
-    selectAll(event) {
-      if (event.target.checked) this.selectedIds = this.episodes.filter(e => e.our_episode_id).map(e => e.our_episode_id);
-      else this.selectedIds = [];
+    toggleSelectAll() {
+      const selectable = this.filteredEpisodes.filter(e => e.our_episode_id);
+      if (this.allFilteredSelected) {
+        const filteredIds = new Set(selectable.map(e => e.our_episode_id));
+        this.selectedIds = this.selectedIds.filter(id => !filteredIds.has(id));
+      } else {
+        this.selectedIds = selectable.map(e => e.our_episode_id);
+      }
     },
 
     async transcribeSelected() {

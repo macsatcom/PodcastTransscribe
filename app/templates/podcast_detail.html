@@ -206,9 +206,7 @@ function podcastDetail() {
         const filteredIds = new Set(this.filteredEpisodes.map(e => e.id));
         this.selectedIds = this.selectedIds.filter(id => !filteredIds.has(id));
       } else {
-        for (const ep of this.filteredEpisodes) {
-          if (!this.selectedIds.includes(ep.id)) this.selectedIds.push(ep.id);
-        }
+        this.selectedIds = this.filteredEpisodes.map(e => e.id);
       }
     },
 
