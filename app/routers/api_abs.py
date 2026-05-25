@@ -264,6 +264,8 @@ async def get_abs_item(item_id: str, db: AsyncSession = Depends(get_db)):
     if media_type == "podcast":
         raw_episodes.sort(key=lambda e: e.get("publishedAt") or 0, reverse=True)
 
+    queued_ids = {str(eid) for eid in episode_queue.get_queued_ids()}
+
     episode_list = []
     for i, ep in enumerate(raw_episodes):
         if media_type == "podcast":
@@ -290,6 +292,7 @@ async def get_abs_item(item_id: str, db: AsyncSession = Depends(get_db)):
             "cost": our_ep.cost if our_ep else None,
             "error_message": our_ep.error_message if our_ep and our_ep.status == "error" else None,
             "published_at": published_at,
+            "queued": str(our_ep.id) in queued_ids if our_ep else False,
         })
 
     return {

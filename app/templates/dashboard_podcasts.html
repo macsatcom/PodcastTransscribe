@@ -44,7 +44,7 @@
               <div class="font-bold truncate" style="font-size:0.875rem;" x-text="p.title"></div>
               <div class="text-xs text-secondary truncate mt-1" x-text="p.author || ''"></div>
               <div class="flex items-center gap-3 mt-1">
-                <span class="text-2xs text-tertiary" x-text="p.episode_count + ' episodes'"></span>
+                <span class="text-2xs text-tertiary" x-text="(p.ready_count || 0) + '/' + p.episode_count + ' transcribed'"></span>
                 <span x-show="p.latest_episode" class="text-2xs text-tertiary" x-text="'Updated ' + new Date(p.latest_episode).toLocaleDateString()"></span>
               </div>
             </div>

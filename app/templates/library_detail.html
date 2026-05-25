@@ -86,7 +86,10 @@
             <div x-show="ep.status === 'error' && ep.error_message" style="font-size:0.688rem;color:#f3727f;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" x-text="ep.error_message"></div>
           </div>
           <div class="flex items-center gap-2 flex-shrink-0">
-            <template x-if="ep.status === 'none' || ep.status === 'new'">
+            <template x-if="ep.queued && ep.status === 'new'">
+              <span class="badge badge-yellow">queued</span>
+            </template>
+            <template x-if="!ep.queued && (ep.status === 'none' || ep.status === 'new')">
               <span class="badge badge-gray">Not transcribed</span>
             </template>
             <template x-if="ep.status === 'processing'">
@@ -101,42 +104,15 @@
                 <button @click="processEpisode(ep.our_episode_id)" :disabled="!ep.our_episode_id" class="btn btn-ghost btn-sm" style="color:var(--accent);">Retry</button>
               </div>
             </template>
-            <button x-show="(ep.status === 'none' || ep.status === 'new') && ep.our_episode_id"
+            <button x-show="(ep.status === 'none' || ep.status === 'new') && ep.our_episode_id && !ep.queued"
                     @click="processEpisode(ep.our_episode_id)" class="btn btn-primary btn-sm">Transcribe</button>
+            <button x-show="ep.status === 'new' && ep.queued"
+                    class="btn btn-ghost btn-sm" style="opacity:0.6;" disabled>Queued</button>
           </div>
         </div>
       </template>
       <div x-show="filteredEpisodes.length === 0 && !loading" class="text-center" style="padding:24px;color:var(--text-tertiary);font-size:0.875rem;">
         No items found
-      </div>
-    </div>
-            <div x-show="ep.model_used" class="text-2xs text-tertiary mt-1" x-text="ep.model_used + (ep.processing_seconds ? ' \u00b7 ' + Math.round(ep.processing_seconds / 60) + 'm' : '')"></div>
-            <div x-show="ep.status === 'error' && ep.error_message" class="text-2xs text-red mt-1 truncate" x-text="ep.error_message"></div>
-          </div>
-          <div class="flex items-center gap-2 flex-shrink-0">
-            <template x-if="ep.status === 'none' || ep.status === 'new'">
-              <span class="badge badge-gray">Not transcribed</span>
-            </template>
-            <template x-if="ep.status === 'processing'">
-              <span class="badge badge-dot badge-blue">Processing</span>
-            </template>
-            <template x-if="ep.status === 'ready'">
-              <a :href="'/episodes/' + ep.our_episode_id" class="badge badge-green">Transcribed</a>
-            </template>
-            <template x-if="ep.status === 'error'">
-              <div class="flex items-center gap-2">
-                <span class="badge badge-red">Error</span>
-                <button @click="processEpisode(ep.our_episode_id)" :disabled="!ep.our_episode_id" class="btn btn-ghost btn-sm text-accent">Retry</button>
-              </div>
-            </template>
-
-            <button x-show="(ep.status === 'none' || ep.status === 'new') && ep.our_episode_id"
-                    @click="processEpisode(ep.our_episode_id)" class="btn btn-primary btn-sm">Transcribe</button>
-          </div>
-        </div>
-      </template>
-      <div x-show="filteredEpisodes.length === 0 && !loading" class="empty-state">
-        <p class="font-medium text-sm">No items found</p>
       </div>
     </div>
   </div>

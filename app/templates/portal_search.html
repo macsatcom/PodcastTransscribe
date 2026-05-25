@@ -75,7 +75,7 @@
   <script>
     function searchView() {
       return {
-        portal: { title: {{ portal.title|tojson }}, description: {{ portal.description|tojson }}, background_image: {{ portal.background_image|tojson }}, secondary_image: {{ portal.secondary_image|tojson }} },
+        portal: { title: {{ portal.title|tojson }}, description: {{ portal.description|tojson }}, background_image: {{ portal.background_image|tojson }}, secondary_image: {{ portal.secondary_image|tojson }}, podcast_ids: {{ portal.podcast_ids|tojson }} },
         bgImage: '{{ portal.background_image or "" }}' || '{{ portal.secondary_image or "" }}',
         hasBg: ('{{ portal.background_image or "" }}' || '{{ portal.secondary_image or "" }}') ? true : false,
         keyword: '',
@@ -88,6 +88,9 @@
           this.loading = true;
           this.searched = true;
           const params = new URLSearchParams();
+          if (this.portal.podcast_ids && this.portal.podcast_ids.length > 0) {
+            params.set('podcast_ids', this.portal.podcast_ids.join(','));
+          }
           if (this.keyword.trim() && this.natural.trim()) {
             params.set('q', this.keyword);
             params.set('nq', this.natural);

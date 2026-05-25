@@ -20,6 +20,8 @@ class CreatePortalRequest(BaseModel):
     port: int
     podcast_ids: list[str]
     description: str | None = None
+    background_image: str | None = None
+    secondary_image: str | None = None
 
 
 @router.get("")
@@ -55,6 +57,8 @@ async def create_portal(
         port=body.port,
         podcast_ids=body.podcast_ids,
         description=body.description,
+        background_image=body.background_image,
+        secondary_image=body.secondary_image,
     )
     db.add(portal)
     await db.commit()

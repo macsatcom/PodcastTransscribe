@@ -17,6 +17,10 @@ def create_app() -> FastAPI:
     if static_dir.exists():
         app.mount("/static/portal_images", StaticFiles(directory=str(static_dir)), name="portal_images")
 
+    app_static = Path(__file__).parent / "static"
+    if app_static.exists():
+        app.mount("/static", StaticFiles(directory=str(app_static)), name="static")
+
     from app.routers import api_search
     app.include_router(api_search.router)
 

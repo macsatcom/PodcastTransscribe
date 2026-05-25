@@ -37,6 +37,7 @@ async def list_podcasts(
         Episode.podcast_id,
         func.count(Episode.id).label("count"),
         func.max(Episode.published_at).label("latest"),
+        func.count().filter(Episode.status == "ready").label("ready"),
     ).group_by(Episode.podcast_id)
     counts_result = await db.execute(counts_q)
     counts = {row.podcast_id: row for row in counts_result}
@@ -54,6 +55,7 @@ async def list_podcasts(
             "abs_item_id": p.abs_item_id,
             "narrator": p.narrator,
             "episode_count": counts.get(p.id, None).count if p.id in counts else 0,
+            "ready_count": counts.get(p.id, None).ready if p.id in counts else 0,
             "latest_episode": counts.get(p.id, None).latest.isoformat() if p.id in counts and counts[p.id].latest else None,
         }
         for p in podcasts

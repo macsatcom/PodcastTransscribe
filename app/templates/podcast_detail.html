@@ -100,9 +100,9 @@
     </div>
 
     <div class="flex items-center gap-3">
-      <label class="flex items-center gap-2 text-xs font-medium text-secondary cursor-pointer">
-        <input type="checkbox" @change="selectAll = !selectAll; toggleSelectAll()" class="checkbox"> Select all
-      </label>
+       <label class="flex items-center gap-2 text-xs font-medium text-secondary cursor-pointer">
+         <input type="checkbox" :checked="allFilteredSelected" @change="toggleSelectAll()" class="checkbox"> Select all
+       </label>
       <button @click="processSelected()" x-show="selectedIds.length > 0"
               class="btn btn-primary btn-sm" x-text="'Process Selected (' + selectedIds.length + ')'">
       </button>
@@ -176,7 +176,7 @@ function podcastDetail() {
     polling: false, pollResult: '',
     processingAll: false, processAllResult: '',
     filterText: '', statusFilter: '',
-    selectedIds: [], selectAll: false,
+    selectedIds: [],
     showEdit: false, editTitle: '', editAuthor: '', editDescription: '', editCoverUrl: '', editLanguage: '',
     saving: false, deleteTarget: false, deleting: false,
 
@@ -193,13 +193,23 @@ function podcastDetail() {
         });
       }
       return list;
+    },    get allFilteredSelected() {
+      return this.filteredEpisodes.length > 0
+        && this.filteredEpisodes.every(e => this.selectedIds.includes(e.id));
     },
+
 
     toggleSelect(id) { const idx = this.selectedIds.indexOf(id); if (idx > -1) this.selectedIds.splice(idx, 1); else this.selectedIds.push(id); },
 
     toggleSelectAll() {
-      if (this.selectAll) this.selectedIds = this.filteredEpisodes.map(e => e.id);
-      else this.selectedIds = [];
+      if (this.allFilteredSelected) {
+        const filteredIds = new Set(this.filteredEpisodes.map(e => e.id));
+        this.selectedIds = this.selectedIds.filter(id => !filteredIds.has(id));
+      } else {
+        for (const ep of this.filteredEpisodes) {
+          if (!this.selectedIds.includes(ep.id)) this.selectedIds.push(ep.id);
+        }
+      }
     },
 
     async loadPodcast() {
