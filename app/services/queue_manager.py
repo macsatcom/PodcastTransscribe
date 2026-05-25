@@ -2,7 +2,7 @@ import asyncio
 import logging
 from datetime import datetime, timezone, timedelta
 
-from sqlalchemy import select, update
+from sqlalchemy import select, update, func
 
 from app.config import settings
 from app.database import async_session
@@ -121,10 +121,11 @@ class EpisodeQueue:
             result = await session.execute(
                 select(Episode).where(
                     Episode.status.in_(RUNNING_STATUSES),
-                    Episode.created_at < cutoff,
+                    func.coalesce(Episode.updated_at, Episode.created_at) < cutoff,
                 )
             )
             stale = result.scalars().all()
+            stale = [ep for ep in stale if str(ep.id) not in self._currently_processing]
             if stale:
                 for ep in stale:
                     ep.status = "new"

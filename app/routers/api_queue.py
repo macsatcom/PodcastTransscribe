@@ -86,7 +86,7 @@ async def get_queue(db: AsyncSession = Depends(get_db)):
         "done": done,
         "counts": {
             "running": qm_status["running_count"],
-            "queued": len(queued),
+            "queued": len(queued_ids),
             "error": total_by_status.get("error", 0),
             "done": total_by_status.get("ready", 0),
             "new_total": total_by_status.get("new", 0),

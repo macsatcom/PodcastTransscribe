@@ -29,7 +29,7 @@ async def list_podcasts(
     if source_type:
         query = query.join(Podcast.source_configs).where(
             SourceConfig.source_type == source_type
-        )
+        ).distinct()
     result = await db.execute(query.order_by(Podcast.title))
     podcasts = result.scalars().all()
 

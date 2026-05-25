@@ -126,17 +126,26 @@ class ABSSourceAdapter(BaseSourceAdapter):
 
         result: list[EpisodeMetadata] = []
         for ep in episodes:
-            try:
-                play_info = await self.get_play_info(abs_item_id, ep.get("id"))
-            except httpx.HTTPError:
+            play_info = None
+            for attempt in range(2):
+                try:
+                    play_info = await self.get_play_info(abs_item_id, ep.get("id"))
+                    break
+                except httpx.HTTPError:
+                    if attempt == 0:
+                        await asyncio.sleep(3)
+            if play_info is None:
+                logger.warning("Skipping episode %s — could not get play info after retries", ep.get("id"))
                 continue
 
             audio_tracks = play_info.get("audioTracks", [])
             if not audio_tracks:
+                logger.warning("Skipping episode %s — no audio tracks", ep.get("id"))
                 continue
 
             audio_url = self._resolve_url(audio_tracks[0].get("contentUrl", ""))
             if not audio_url:
+                logger.warning("Skipping episode %s — no audio URL", ep.get("id"))
                 continue
 
             published = None

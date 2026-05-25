@@ -11,8 +11,8 @@
 
   <div class="mb-6">
     <div class="tabs">
-      <button @click="activeTab = 'podcasts'" class="tab" :class="{ active: activeTab === 'podcasts' }">RSS Podcasts</button>
-      <button @click="activeTab = 'library'; selectFirstLibrary()" class="tab" :class="{ active: activeTab === 'library' }">Audiobookshelf</button>
+      <button @click="activeTab = 'podcasts'; sessionStorage.setItem('dashboardTab', 'podcasts')" class="tab" :class="{ active: activeTab === 'podcasts' }">RSS Podcasts</button>
+      <button @click="activeTab = 'library'; sessionStorage.setItem('dashboardTab', 'library'); selectFirstLibrary()" class="tab" :class="{ active: activeTab === 'library' }">Audiobookshelf</button>
     </div>
   </div>
 
@@ -24,7 +24,7 @@
   <!-- Library Tab -->
   <div x-show="activeTab === 'library'" x-cloak>
     <div class="flex items-center gap-3 mb-4">
-      <select x-model="selectedLibrary" @change="loadItems()" class="select">
+      <select x-model="selectedLibrary" @change="loadItems(); sessionStorage.setItem('dashboardLibrary', selectedLibrary)" class="select">
         <option value="" disabled>Select library to sync...</option>
         <template x-for="lib in filteredLibraries" :key="lib.id">
           <option :value="lib.id" x-text="lib.name"></option>
@@ -131,9 +131,11 @@ function dashboard() {
     selectFirstLibrary() {
       if (this.filteredLibraries.length > 0) {
         this.selectedLibrary = this.filteredLibraries[0].id;
+        sessionStorage.setItem('dashboardLibrary', this.selectedLibrary);
         this.loadItems();
       } else {
         this.selectedLibrary = '';
+        sessionStorage.removeItem('dashboardLibrary');
         this.items = [];
         this.loading = false;
       }
@@ -144,6 +146,14 @@ function dashboard() {
       fetch('/api/abs/libraries').then(r => r.json()).then(libs => {
         if (Array.isArray(libs)) this.libraries = libs;
       }).catch(() => {});
+
+      const savedTab = sessionStorage.getItem('dashboardTab');
+      const savedLibrary = sessionStorage.getItem('dashboardLibrary');
+      if (savedTab === 'library' && savedLibrary) {
+        this.activeTab = 'library';
+        this.selectedLibrary = savedLibrary;
+        this.loadItems();
+      }
     },
 
     async syncLibrary() {

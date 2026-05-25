@@ -170,13 +170,18 @@ function adminView() {
       const r = await fetch('/api/settings');
       const data = await r.json();
       this.apiKey = data.openrouter_api_key || '';
-      this.transcriptionModel = data.transcription_model || '';
-      this.summarizationModel = data.summarization_model || '';
-      this.embeddingModel = data.embedding_model || '';
       this.selfHostedUrl = data.self_hosted_whisper_url || '';
       this.absUrl = data.abs_url || '';
       this.absApiKey = data.abs_api_key || '';
-      if (this.apiKey) await this.fetchModels();
+
+      if (this.apiKey) {
+        await this.fetchModels();
+        await this.$nextTick();
+      }
+
+      this.transcriptionModel = data.transcription_model || '';
+      this.summarizationModel = data.summarization_model || '';
+      this.embeddingModel = data.embedding_model || '';
     },
 
     async saveAndTestAbs() {

@@ -33,6 +33,7 @@ async def list_episodes(
     query = query.order_by(Episode.published_at.desc())
     result = await db.execute(query)
     episodes = result.scalars().all()
+    queued_ids = {str(eid) for eid in episode_queue.get_queued_ids()}
     return [
         {
             "id": str(e.id),
@@ -50,6 +51,7 @@ async def list_episodes(
             "abs_item_id": e.abs_item_id,
             "abs_episode_id": e.abs_episode_id,
             "chapter_index": e.chapter_index,
+            "queued": str(e.id) in queued_ids,
         }
         for e in episodes
     ]

@@ -228,7 +228,8 @@ async def get_abs_item(item_id: str, db: AsyncSession = Depends(get_db)):
             key = ep.abs_episode_id or str(ep.chapter_index or 0)
             our_episodes_map[key] = ep
 
-        if not our_episodes_map and raw_episodes:
+        missing = [e for e in raw_episodes if str(e.get("id", "")) not in our_episodes_map]
+        if missing and podcast:
             try:
                 episodes_meta = await adapter.discover_new(item_id)
                 for meta in episodes_meta:
