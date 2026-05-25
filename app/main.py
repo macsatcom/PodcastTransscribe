@@ -14,6 +14,7 @@ from app.database import engine, Base, async_session
 from app.models.episode import Episode
 from app.models.podcast import Podcast
 from app.models.portal import Portal
+from app.models.topic import TopicCluster, EpisodeTopic
 from app.models.setting import Setting
 from app.models.source_config import SourceConfig
 from app.services.rss_poller import poll_all_feeds
