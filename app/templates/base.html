@@ -630,6 +630,7 @@
     <a href="/" class="nav-brand">Transcribe</a>
     <a href="/" class="nav-link active" id="nav-dashboard">Dashboard</a>
     <a href="/queue" class="nav-link" id="nav-queue">Queue</a>
+    <a href="/insights" class="nav-link" id="nav-insights">Insights</a>
     <a href="/search" class="nav-link" id="nav-search">Search</a>
     <a href="/admin" class="nav-link" id="nav-admin">Admin</a>
   </nav>
@@ -644,6 +645,7 @@
       if (path === '/' || path === '') el.id === 'nav-dashboard' ? el.classList.add('active') : null;
       if (path.startsWith('/queue')) document.getElementById('nav-queue').classList.add('active');
       if (path.startsWith('/search')) document.getElementById('nav-search').classList.add('active');
+      if (path.startsWith('/insights')) document.getElementById('nav-insights').classList.add('active');
       if (path.startsWith('/admin')) document.getElementById('nav-admin').classList.add('active');
       if (path.startsWith('/podcasts') || path.startsWith('/library') || path === '/')
         document.getElementById('nav-dashboard').classList.add('active');

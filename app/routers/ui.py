@@ -41,6 +41,11 @@ async def admin_page(request: Request):
     return templates.TemplateResponse(request, "admin.html")
 
 
+@router.get("/insights", response_class=HTMLResponse)
+async def insights_page(request: Request):
+    return templates.TemplateResponse(request, "insights.html")
+
+
 @router.get("/library/{abs_item_id}", response_class=HTMLResponse)
 async def library_detail(request: Request, abs_item_id: str):
     return templates.TemplateResponse(

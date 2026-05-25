@@ -18,6 +18,7 @@ from app.models.setting import Setting
 from app.models.source_config import SourceConfig
 from app.services.rss_poller import poll_all_feeds
 from app.services.abs_poller import poll_abs_libraries
+from app.services.clustering import run_clustering
 from app.services.queue_manager import episode_queue
 from app.portal_manager import portal_manager
 from app.config import settings
@@ -150,6 +151,14 @@ async def lifespan(app: FastAPI):
         id="stale_check",
         replace_existing=True,
     )
+    scheduler.add_job(
+        run_clustering,
+        trigger="cron",
+        hour=3,
+        minute=0,
+        id="daily_clustering",
+        replace_existing=True,
+    )
     scheduler.start()
 
     async with async_session() as session:
@@ -167,7 +176,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Podcast Transcription and Search", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
-from app.routers import api_podcasts, api_episodes, api_queue, api_search, api_settings, ui, api_portals, api_abs
+from app.routers import api_podcasts, api_episodes, api_queue, api_search, api_settings, ui, api_portals, api_abs, api_insights
 
 app.include_router(api_podcasts.router)
 app.include_router(api_episodes.router)
@@ -177,3 +186,4 @@ app.include_router(api_settings.router)
 app.include_router(ui.router)
 app.include_router(api_portals.router)
 app.include_router(api_abs.router)
+app.include_router(api_insights.router)
