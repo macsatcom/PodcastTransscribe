@@ -27,6 +27,9 @@ def create_app() -> FastAPI:
     from app.routers import api_episodes
     app.include_router(api_episodes.router)
 
+    from app.routers import api_insights
+    app.include_router(api_insights.router)
+
     from fastapi import APIRouter, Request
     from fastapi.responses import HTMLResponse
     from fastapi.templating import Jinja2Templates
@@ -54,6 +57,18 @@ def create_app() -> FastAPI:
             portal = await session.get(Portal, portal_id)
         return templates.TemplateResponse(
             request, "portal_episode.html", context={"portal": portal, "episode_id": episode_id},
+        )
+
+    @portal_router.get("/insights", response_class=HTMLResponse)
+    async def portal_insights(request: Request):
+        from app.database import async_session
+        from app.models.portal import Portal
+        async with async_session() as session:
+            portal = await session.get(Portal, portal_id)
+            if not portal:
+                return HTMLResponse("Portal not found", status_code=404)
+        return templates.TemplateResponse(
+            request, "portal_insights.html", context={"portal": portal},
         )
 
     app.include_router(portal_router)
