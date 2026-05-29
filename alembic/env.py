@@ -8,6 +8,9 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from app.database import Base
 from app.config import settings
 
+# Import all models so Base.metadata is populated for autogenerate.
+from app.models import episode, podcast, portal, setting, source_config, topic, transcript  # noqa: F401
+
 config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)

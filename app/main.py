@@ -111,6 +111,25 @@ async def _deduplicate_abs_podcasts():
         logger.info("Dedup: cleanup complete")
 
 
+async def _run_alembic_upgrade() -> None:
+    """Run ``alembic upgrade head`` programmatically.
+
+    Alembic's CLI is sync and expects to manage its own engine. We call it in
+    a worker thread so we don't block the event loop, and we let alembic.ini
+    + alembic/env.py drive the connection (they already build an async engine
+    against the same DATABASE_URL).
+    """
+    import asyncio
+    from alembic import command
+    from alembic.config import Config
+
+    def _do_upgrade() -> None:
+        cfg = Config("alembic.ini")
+        command.upgrade(cfg, "head")
+
+    await asyncio.to_thread(_do_upgrade)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     os.makedirs(settings.portal_images_dir, exist_ok=True)
@@ -118,14 +137,12 @@ async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
         await conn.run_sync(Base.metadata.create_all)
-        await conn.execute(text("ALTER TABLE podcasts ADD COLUMN IF NOT EXISTS abs_item_id TEXT"))
-        await conn.execute(text("ALTER TABLE podcasts ADD COLUMN IF NOT EXISTS media_type TEXT"))
-        await conn.execute(text("ALTER TABLE podcasts ADD COLUMN IF NOT EXISTS narrator TEXT"))
-        await conn.execute(text("ALTER TABLE episodes ADD COLUMN IF NOT EXISTS abs_item_id TEXT"))
-        await conn.execute(text("ALTER TABLE episodes ADD COLUMN IF NOT EXISTS abs_episode_id TEXT"))
-        await conn.execute(text("ALTER TABLE episodes ADD COLUMN IF NOT EXISTS chapter_index INTEGER"))
-        await conn.execute(text("ALTER TABLE episodes ADD COLUMN IF NOT EXISTS media_type TEXT"))
-        await conn.execute(text("ALTER TABLE episodes ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW()"))
+
+    # Apply Alembic migrations. 0001 is a no-op baseline; 0002+ carry the real
+    # deltas with idempotent guards, so this is safe on both fresh databases
+    # (where create_all already produced the latest schema) and legacy
+    # databases that pre-date Alembic.
+    await _run_alembic_upgrade()
 
     await _deduplicate_abs_podcasts()
 
