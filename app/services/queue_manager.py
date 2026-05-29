@@ -7,7 +7,7 @@ from sqlalchemy import select, update, func
 from app.config import settings
 from app.database import async_session
 from app.models.episode import Episode
-from app.services.pipeline import process_episode, reset_episode_safe
+from app.services.pipeline import process_episode
 
 logger = logging.getLogger(__name__)
 

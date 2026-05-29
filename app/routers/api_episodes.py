@@ -7,7 +7,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.models.episode import Episode
 from app.models.transcript import Transcript
-from app.services.pipeline import reset_episode_safe
 from app.services.queue_manager import episode_queue
 
 router = APIRouter(prefix="/api/episodes", tags=["episodes"])

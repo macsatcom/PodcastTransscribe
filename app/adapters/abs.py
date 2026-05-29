@@ -43,6 +43,12 @@ class ABSSourceAdapter(BaseSourceAdapter):
             await self._client.aclose()
             self._client = None
 
+    async def __aenter__(self) -> "ABSSourceAdapter":
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb) -> None:
+        await self.close()
+
     async def get_libraries(self) -> list[dict]:
         client = self._get_client()
         response = await client.get("/api/libraries")

@@ -44,10 +44,13 @@ async def poll_abs_source(source_config_id):
 
         adapter = ABSSourceAdapter()
         try:
-            episodes_meta = await adapter.discover_new(abs_item_id)
-        except Exception as e:
-            logger.error("ABS poll failed for item %s: %s", abs_item_id, e)
-            return
+            try:
+                episodes_meta = await adapter.discover_new(abs_item_id)
+            except Exception as e:
+                logger.error("ABS poll failed for item %s: %s", abs_item_id, e)
+                return
+        finally:
+            await adapter.close()
 
         new_episodes = []
         for meta in episodes_meta:

@@ -158,9 +158,9 @@ async def test_abs_connection(db: AsyncSession = Depends(get_db)):
     key = (abs_key_setting.value if abs_key_setting else "").strip()
     if not url or not key:
         return {"ok": False, "error": "ABS URL and API key are required"}
-    adapter = ABSSourceAdapter(abs_url=url, api_key=key)
-    try:
-        await adapter.get_libraries()
-        return {"ok": True}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+    async with ABSSourceAdapter(abs_url=url, api_key=key) as adapter:
+        try:
+            await adapter.get_libraries()
+            return {"ok": True}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}

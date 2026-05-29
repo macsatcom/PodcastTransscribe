@@ -27,20 +27,26 @@ def normalize_status(status: str | None) -> str:
     return status
 
 
-async def get_adapter(db: AsyncSession | None = None) -> ABSSourceAdapter:
-    if db is not None:
-        abs_url_setting = await db.get(Setting, "abs_url")
-        abs_key_setting = await db.get(Setting, "abs_api_key")
-        db_url = (abs_url_setting.value if abs_url_setting else "").strip()
-        db_key = (abs_key_setting.value if abs_key_setting else "").strip()
-        if db_url and db_key:
-            return ABSSourceAdapter(abs_url=db_url, api_key=db_key)
-    return ABSSourceAdapter()
+async def get_adapter(db: AsyncSession = Depends(get_db)):
+    """FastAPI dependency: yields a configured ABSSourceAdapter and closes it after the request."""
+    abs_url_setting = await db.get(Setting, "abs_url")
+    abs_key_setting = await db.get(Setting, "abs_api_key")
+    db_url = (abs_url_setting.value if abs_url_setting else "").strip()
+    db_key = (abs_key_setting.value if abs_key_setting else "").strip()
+    if db_url and db_key:
+        adapter = ABSSourceAdapter(abs_url=db_url, api_key=db_key)
+    else:
+        adapter = ABSSourceAdapter()
+    try:
+        yield adapter
+    finally:
+        await adapter.close()
 
 
 @router.get("/libraries")
-async def list_abs_libraries(db: AsyncSession = Depends(get_db)):
-    adapter = await get_adapter(db)
+async def list_abs_libraries(
+    adapter: ABSSourceAdapter = Depends(get_adapter),
+):
     try:
         libs = await adapter.get_libraries()
         return [
@@ -61,8 +67,8 @@ async def list_abs_libraries(db: AsyncSession = Depends(get_db)):
 async def browse_library_items(
     library_id: str,
     db: AsyncSession = Depends(get_db),
+    adapter: ABSSourceAdapter = Depends(get_adapter),
 ):
-    adapter = await get_adapter(db)
     try:
         items = await adapter.get_library_items(library_id)
     except Exception as e:
@@ -163,8 +169,11 @@ async def browse_library_items(
 
 
 @router.get("/items/{item_id}")
-async def get_abs_item(item_id: str, db: AsyncSession = Depends(get_db)):
-    adapter = await get_adapter(db)
+async def get_abs_item(
+    item_id: str,
+    db: AsyncSession = Depends(get_db),
+    adapter: ABSSourceAdapter = Depends(get_adapter),
+):
     try:
         abs_item = await adapter.get_item(item_id, expanded=True)
     except Exception as e:
@@ -311,8 +320,11 @@ async def get_abs_item(item_id: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/items/{item_id}/cover")
-async def get_abs_cover(item_id: str, db: AsyncSession = Depends(get_db)):
-    adapter = await get_adapter(db)
+async def get_abs_cover(
+    item_id: str,
+    db: AsyncSession = Depends(get_db),
+    adapter: ABSSourceAdapter = Depends(get_adapter),
+):
     try:
         client = adapter._get_client()
         resp = await client.get(f"/api/items/{item_id}/cover")
@@ -323,14 +335,18 @@ async def get_abs_cover(item_id: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/items/{item_id}/auto-process")
-async def toggle_auto_process(item_id: str, body: dict, db: AsyncSession = Depends(get_db)):
+async def toggle_auto_process(
+    item_id: str,
+    body: dict,
+    db: AsyncSession = Depends(get_db),
+    adapter: ABSSourceAdapter = Depends(get_adapter),
+):
     auto_process = body.get("auto_process", False)
     podcast = (await db.execute(
         select(Podcast).where(Podcast.abs_item_id == item_id)
     )).scalar_one_or_none()
 
     if not podcast:
-        adapter = await get_adapter(db)
         try:
             abs_item = await adapter.get_item(item_id)
             media = abs_item.get("media", {})
@@ -412,8 +428,11 @@ async def enqueue_pending_batch(body: dict, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/library/{library_id}/sync")
-async def sync_library(library_id: str, db: AsyncSession = Depends(get_db)):
-    adapter = await get_adapter(db)
+async def sync_library(
+    library_id: str,
+    db: AsyncSession = Depends(get_db),
+    adapter: ABSSourceAdapter = Depends(get_adapter),
+):
     try:
         items = await adapter.get_library_items(library_id)
     except Exception as e:
