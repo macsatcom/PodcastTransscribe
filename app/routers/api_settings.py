@@ -13,6 +13,7 @@ VALID_KEYS = {
     "transcription_model",
     "summarization_model",
     "embedding_model",
+    "semantic_distance_threshold",
     "self_hosted_whisper_url",
     "abs_url",
     "abs_api_key",

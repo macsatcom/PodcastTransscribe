@@ -200,28 +200,45 @@
       </div>
 
       <div class="results">
-        <p x-show="searched && !loading && results.length === 0" class="empty">No results found.</p>
+        <p x-show="searched && !loading && results.length === 0 && !(searchMeta.threshold && searchMeta.candidate_count === 0)" class="empty">No results found.</p>
+        <p x-show="searched && !loading && results.length === 0 && searchMeta.threshold && searchMeta.candidate_count === 0" class="empty">
+          No chunks scored above the relevance threshold (cosine distance ≤ <span x-text="searchMeta.threshold.toFixed(2)"></span>).
+        </p>
         <p x-show="loading" class="empty"><span class="spinner"></span>Searching...</p>
         <template x-for="r in results" :key="r.episode_id + (r.chunk_index || '')">
-          <a :href="'/episodes/' + r.episode_id + '?q=' + encodeURIComponent(keyword || natural)"
-             class="result-card">
-            <div class="result-header">
-              <template x-if="r.cover_url">
-                <img :src="r.cover_url" class="result-cover">
-              </template>
-              <div class="result-body">
-                <div class="result-title-row">
-                  <span class="result-title" x-text="r.episode_title"></span>
-                  <span class="tag" :class="r.type === 'fts' ? 'tag-fts' : 'tag-semantic'"
-                        x-text="r.type === 'fts' ? 'Keyword' : 'Semantic'"></span>
-                </div>
-                <div class="result-snippet" x-html="r.snippet"></div>
-                <div class="result-meta">
-                  <span x-text="r.type === 'fts' ? 'Match: ' + keyword : 'Relevance: ' + (r.score || 0).toFixed(2)"></span>
+          <div class="result-card-wrap" style="display:flex;flex-direction:column;gap:8px;">
+            <a :href="'/episodes/' + r.episode_id + '?q=' + encodeURIComponent(keyword || natural)"
+               class="result-card">
+              <div class="result-header">
+                <template x-if="r.cover_url">
+                  <img :src="r.cover_url" class="result-cover">
+                </template>
+                <div class="result-body">
+                  <div class="result-title-row">
+                    <span class="result-title" x-text="r.episode_title"></span>
+                    <span class="tag" :class="r.type === 'fts' ? 'tag-fts' : 'tag-semantic'"
+                          x-text="r.type === 'fts' ? 'Keyword' : 'Semantic'"></span>
+                  </div>
+                  <div class="result-snippet" x-html="r.snippet"></div>
+                  <div class="result-meta">
+                    <span x-text="r.type === 'fts' ? 'Match: ' + keyword : 'Relevance: ' + (r.score || 0).toFixed(2)"></span>
+                  </div>
                 </div>
               </div>
-            </div>
-          </a>
+            </a>
+            <template x-if="r.chunks && r.chunks.length > 1">
+              <div style="display:flex;flex-direction:column;gap:4px;padding-left:12px;">
+                <template x-for="c in r.chunks.slice(1)" :key="c.chunk_index">
+                  <a :href="'/episodes/' + r.episode_id + (c.start_time != null ? '?t=' + Math.floor(c.start_time) : '')"
+                     style="display:block;color:rgba(255,255,255,0.7);text-decoration:none;font-size:0.75rem;line-height:1.4;padding:6px 10px;background:rgba(255,255,255,0.04);border-radius:4px;">
+                    <span x-show="c.start_time != null" style="color:var(--accent,#10b981);font-weight:600;margin-right:6px;font-variant-numeric:tabular-nums;"
+                          x-text="formatTime(c.start_time)"></span>
+                    <span x-text="c.text.length > 220 ? c.text.slice(0, 220) + '…' : c.text"></span>
+                  </a>
+                </template>
+              </div>
+            </template>
+          </div>
         </template>
       </div>
     </div>
@@ -238,6 +255,16 @@
         loading: false,
         searched: false,
         results: [],
+        searchMeta: { threshold: null, model: null, candidate_count: 0 },
+        formatTime(secs) {
+          if (secs == null) return '';
+          const s = Math.floor(secs);
+          const h = Math.floor(s / 3600);
+          const m = Math.floor((s % 3600) / 60);
+          const sec = s % 60;
+          const pad = (n) => String(n).padStart(2, '0');
+          return h > 0 ? `${h}:${pad(m)}:${pad(sec)}` : `${m}:${pad(sec)}`;
+        },
         async doSearch() {
           if (!this.keyword.trim() && !this.natural.trim()) return;
           this.loading = true;
@@ -260,8 +287,14 @@
             const r = await fetch('/api/search?' + params);
             const data = await r.json();
             this.results = data.results || [];
+            this.searchMeta = {
+              threshold: data.threshold ?? null,
+              model: data.model ?? null,
+              candidate_count: data.candidate_count ?? 0,
+            };
           } catch(e) {
             this.results = [];
+            this.searchMeta = { threshold: null, model: null, candidate_count: 0 };
           }
           this.loading = false;
         }

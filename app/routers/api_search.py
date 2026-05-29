@@ -22,24 +22,37 @@ async def search(
     pid_list = podcast_ids.split(",") if podcast_ids else None
     eid_list = episode_ids.split(",") if episode_ids else None
 
+    fts_results: list[dict] = []
+    semantic_payload: dict = {"results": [], "threshold": None, "model": None, "candidate_count": 0}
+
     if q and nq:
         fts_results = await search_fts(db, q, language, pid_list, eid_list, media_type, limit)
-        semantic_results = await search_semantic(db, nq, pid_list, eid_list, media_type, limit)
+        semantic_payload = await search_semantic(db, nq, pid_list, eid_list, media_type, limit)
     elif mode == "fts":
         fts_results = await search_fts(db, q, language, pid_list, eid_list, media_type, limit)
-        semantic_results = []
     elif mode == "semantic":
-        fts_results = []
-        semantic_results = await search_semantic(db, q, pid_list, eid_list, media_type, limit)
+        semantic_payload = await search_semantic(db, q, pid_list, eid_list, media_type, limit)
     else:
         fts_results = await search_fts(db, q, language, pid_list, eid_list, media_type, limit)
-        semantic_results = await search_semantic(db, q, pid_list, eid_list, media_type, limit)
+        semantic_payload = await search_semantic(db, q, pid_list, eid_list, media_type, limit)
 
-    seen = set()
-    results = []
+    semantic_results = semantic_payload.get("results", [])
+
+    seen: set[str] = set()
+    results: list[dict] = []
+    # FTS first (preserves the prior ordering contract for keyword-led queries),
+    # then semantic episode aggregations, deduping on episode_id.
     for r in fts_results + semantic_results:
-        if r["episode_id"] not in seen:
-            seen.add(r["episode_id"])
-            results.append(r)
+        eid = r["episode_id"]
+        if eid in seen:
+            continue
+        seen.add(eid)
+        results.append(r)
 
-    return {"results": results, "total": len(results)}
+    return {
+        "results": results,
+        "total": len(results),
+        "threshold": semantic_payload.get("threshold"),
+        "model": semantic_payload.get("model"),
+        "candidate_count": semantic_payload.get("candidate_count", 0),
+    }
