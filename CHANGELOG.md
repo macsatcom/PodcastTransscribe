@@ -4,6 +4,16 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.2] - 2026-05-30
+
+### Fixed
+
+- **Podcast filter dropdowns show only podcasts with transcribed content** —
+  the search and insights podcast filters previously listed all podcasts
+  regardless of whether any episodes had been transcribed. Both dropdowns now
+  filter on `ready_count > 0` so only podcasts with at least one ready episode
+  appear as options.
+
 ## [0.18.1] - 2026-05-30
 
 ### Fixed

@@ -212,7 +212,7 @@ function insightsView() {
     async loadPodcasts() {
       try {
         const r = await fetch('/api/podcasts');
-        this.podcastList = (await r.json()).filter(p => p.media_type !== 'ebook');
+        this.podcastList = (await r.json()).filter(p => p.media_type !== 'ebook' && p.ready_count > 0);
       } catch(e) { console.error(e); }
     },
 

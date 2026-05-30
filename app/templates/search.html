@@ -94,7 +94,7 @@ function searchView() {
     podcasts: [], episodes: [], results: [], loading: false, searched: false,
     searchMeta: { threshold: null, model: null, candidate_count: 0 },
 
-    async init() { const r = await fetch('/api/podcasts'); this.podcasts = await r.json(); },
+    async init() { const r = await fetch('/api/podcasts'); this.podcasts = (await r.json()).filter(p => p.ready_count > 0); },
 
     formatTime(secs) {
       if (secs == null) return '';
