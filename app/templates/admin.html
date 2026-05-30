@@ -78,7 +78,35 @@
                   <option :value="m" x-text="m"></option>
                 </template>
               </select>
+              <p class="text-xs text-secondary" style="margin-top:4px;">
+                Changing this re-embeds every transcript chunk in the background. You'll be asked to confirm.
+              </p>
             </div>
+
+            <div>
+              <label class="text-xs font-medium text-secondary" style="display:block;margin-bottom:4px;">
+                Semantic distance threshold
+                <span class="text-secondary" x-text="'(' + semanticThreshold + ')'"></span>
+              </label>
+              <input type="range" min="0.30" max="0.60" step="0.01" x-model.number="semanticThreshold" class="w-full">
+              <p class="text-xs text-secondary" style="margin-top:4px;">
+                Lower = stricter (fewer, more relevant hits). Sweet spot 0.35&ndash;0.45. Default 0.40.
+              </p>
+            </div>
+
+            <template x-if="reembed.status === 'running'">
+              <div class="card" style="background:var(--bg-tertiary);padding:12px;border-radius:8px;">
+                <div class="text-sm font-medium" style="margin-bottom:6px;">Re-embedding in progress</div>
+                <div class="text-xs text-secondary" x-text="'Target: ' + reembed.target_model"></div>
+                <div class="text-xs text-secondary" x-text="'Progress: ' + reembed.progress"></div>
+                <button @click="cancelReembed()" class="btn btn-secondary" style="margin-top:8px;">Cancel</button>
+              </div>
+            </template>
+            <template x-if="reembed.status === 'error'">
+              <div class="text-sm" style="color:var(--danger);">
+                Re-embed run failed. Check server logs and re-save the model to retry.
+              </div>
+            </template>
 
             <div>
               <label class="text-xs font-medium text-secondary" style="display:block;margin-bottom:4px;">Self-hosted Whisper URL</label>
@@ -174,6 +202,24 @@
       </div>
     </div>
   </div>
+
+  <template x-if="confirm.open">
+    <div style="position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:50;">
+      <div class="card" style="background:var(--bg-primary);max-width:480px;padding:24px;border-radius:12px;">
+        <h3 class="text-lg font-semibold" style="margin-bottom:8px;">Re-embed all transcripts?</h3>
+        <p class="text-sm text-secondary" style="margin-bottom:12px;">
+          Switching to <span class="font-medium" x-text="confirm.target"></span> will re-embed
+          <span class="font-medium" x-text="confirm.chunks"></span> chunks across
+          <span class="font-medium" x-text="confirm.episodes"></span> episodes in the background.
+          Search may return reduced results until the run completes.
+        </p>
+        <div class="flex items-center gap-3" style="justify-content:flex-end;">
+          <button @click="cancelConfirm()" class="btn btn-secondary">Cancel</button>
+          <button @click="confirmReembed()" class="btn btn-primary">Re-embed</button>
+        </div>
+      </div>
+    </div>
+  </template>
 </div>
 
 <script>
@@ -257,6 +303,12 @@ function adminView() {
     absUrl: '', absApiKey: '', absStatus: '', absOk: false, savingAbs: false,
     saveStatus: '', modelSaveStatus: '', saving: false,
     models: { transcription: [], chat: [], embedding: [] }, modelsLoaded: false, modelsLoading: false, loadError: '',
+    semanticThreshold: 0.40,
+    _initialEmbeddingModel: '',
+    _initialThreshold: 0.40,
+    reembed: { status: 'idle', progress: '0/0', target_model: '' },
+    confirm: { open: false, target: '', chunks: 0, episodes: 0 },
+    _statusTimer: null,
 
     async loadSettings() {
       const r = await fetch('/api/settings');
@@ -274,6 +326,13 @@ function adminView() {
       this.transcriptionModel = data.transcription_model || '';
       this.summarizationModel = data.summarization_model || '';
       this.embeddingModel = data.embedding_model || '';
+      this._initialEmbeddingModel = this.embeddingModel;
+
+      const threshold = parseFloat(data.semantic_distance_threshold);
+      if (!isNaN(threshold)) this.semanticThreshold = threshold;
+      this._initialThreshold = this.semanticThreshold;
+
+      await this.refreshReembedStatus();
     },
 
     async saveAndTestAbs() {
@@ -312,15 +371,84 @@ function adminView() {
     },
 
     async saveModels() {
+      const embeddingChanged =
+        this.embeddingModel && this.embeddingModel !== this._initialEmbeddingModel;
+
+      if (embeddingChanged) {
+        try {
+          const r = await fetch(
+            '/api/settings/reembed/estimate?target_model=' +
+              encodeURIComponent(this.embeddingModel)
+          );
+          const est = await r.json();
+          this.confirm = {
+            open: true,
+            target: this.embeddingModel,
+            chunks: est.chunks || 0,
+            episodes: est.episodes || 0,
+          };
+        } catch (e) {
+          this.modelSaveStatus = 'Could not estimate re-embed scope.';
+        }
+        return;
+      }
+
+      await this._writeModels();
+    },
+
+    async _writeModels() {
       const body = {};
       if (this.transcriptionModel) body.transcription_model = this.transcriptionModel;
       if (this.summarizationModel) body.summarization_model = this.summarizationModel;
       if (this.embeddingModel) body.embedding_model = this.embeddingModel;
       if (this.selfHostedUrl) body.self_hosted_whisper_url = this.selfHostedUrl;
-      const r = await fetch('/api/settings', { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
-      if (r.ok) { this.modelSaveStatus = 'Saved!'; setTimeout(() => this.modelSaveStatus = '', 2000); }
-      else { this.modelSaveStatus = 'Error saving'; }
-    }
+      body.semantic_distance_threshold = String(this.semanticThreshold);
+      const r = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(body),
+      });
+      if (r.ok) {
+        this.modelSaveStatus = 'Saved!';
+        setTimeout(() => this.modelSaveStatus = '', 2000);
+        this._initialEmbeddingModel = this.embeddingModel;
+        this._initialThreshold = this.semanticThreshold;
+        await this.refreshReembedStatus();
+      } else {
+        this.modelSaveStatus = 'Error saving';
+      }
+    },
+
+    async confirmReembed() {
+      this.confirm.open = false;
+      await this._writeModels();
+    },
+
+    cancelConfirm() {
+      this.confirm.open = false;
+      this.embeddingModel = this._initialEmbeddingModel;
+    },
+
+    async cancelReembed() {
+      await fetch('/api/settings/reembed/cancel', { method: 'POST' });
+      await this.refreshReembedStatus();
+    },
+
+    async refreshReembedStatus() {
+      try {
+        const r = await fetch('/api/settings/reembed/status');
+        if (!r.ok) return;
+        this.reembed = await r.json();
+      } catch (e) { /* ignore */ }
+
+      if (this._statusTimer) {
+        clearTimeout(this._statusTimer);
+        this._statusTimer = null;
+      }
+      if (this.reembed.status === 'running') {
+        this._statusTimer = setTimeout(() => this.refreshReembedStatus(), 3000);
+      }
+    },
   };
 }
 </script>

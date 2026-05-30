@@ -14,7 +14,7 @@ from app.models.transcript import Transcript, TranscriptChunk
 from app.models.setting import Setting
 from app.services.transcribe import transcribe_audio
 from app.services.summarize import generate_summary
-from app.services.embedder import chunk_text, embed_chunks
+from app.services.embedder import chunk_transcript, embed_chunks
 
 logger = logging.getLogger(__name__)
 _semaphore = asyncio.Semaphore(settings.max_concurrent_processing)
@@ -117,19 +117,24 @@ async def process_episode(episode_id):
                 episode.status = "indexing"
                 await session.commit()
 
-                chunks = chunk_text(full_text)
-                embeddings = await _run_with_timeout(
-                    embed_chunks(session, chunks), "indexing"
+                chunks = chunk_transcript(full_text, segments)
+                chunk_texts = [c.text for c in chunks]
+                model_used_embed, embeddings = await _run_with_timeout(
+                    embed_chunks(session, chunk_texts), "indexing"
                 )
+                embedding_dim = len(embeddings[0]) if embeddings else None
 
-                for i, (chunk_text_val, embedding) in enumerate(zip(chunks, embeddings)):
-                    chunk = TranscriptChunk(
+                for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
+                    session.add(TranscriptChunk(
                         transcript_id=transcript.id,
                         chunk_index=i,
-                        text=chunk_text_val,
+                        text=chunk.text,
                         embedding=embedding,
-                    )
-                    session.add(chunk)
+                        embedding_model=model_used_embed,
+                        embedding_dim=embedding_dim,
+                        start_time=chunk.start_time,
+                        end_time=chunk.end_time,
+                    ))
 
                 total = time.monotonic() - t0
                 episode.model_used = model_used

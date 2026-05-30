@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.models.setting import Setting
 from app.adapters.abs import ABSSourceAdapter
+from app.services import reembed
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 
@@ -34,15 +35,39 @@ async def update_settings(
     body: dict[str, str],
     db: AsyncSession = Depends(get_db),
 ):
+    embedding_model_changed_to: str | None = None
     for key, value in body.items():
         if key in VALID_KEYS:
             existing = await db.get(Setting, key)
+            old_value = existing.value if existing else None
             if existing:
                 existing.value = value
             else:
                 db.add(Setting(key=key, value=value))
+            if key == "embedding_model" and value and value != old_value:
+                embedding_model_changed_to = value
     await db.commit()
-    return {"status": "saved"}
+
+    response: dict = {"status": "saved"}
+    if embedding_model_changed_to:
+        result = await reembed.trigger_reembed(embedding_model_changed_to)
+        response["reembed"] = result
+    return response
+
+
+@router.get("/reembed/status")
+async def reembed_status():
+    return await reembed.get_status()
+
+
+@router.get("/reembed/estimate")
+async def reembed_estimate(target_model: str):
+    return await reembed.estimate(target_model)
+
+
+@router.post("/reembed/cancel")
+async def reembed_cancel():
+    return await reembed.cancel_reembed()
 
 
 def _classify_chat_model(mid: str, modality: str) -> list[str]:
@@ -102,7 +127,6 @@ async def list_models(db: AsyncSession = Depends(get_db)):
             "mistralai/mistral-small-3.1-24b-instruct",
         ],
         "embedding": [
-            "openai/text-embedding-3-small",
             "openai/text-embedding-3-large",
         ],
     }

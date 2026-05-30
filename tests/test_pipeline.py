@@ -44,7 +44,7 @@ async def test_process_episode_full_flow():
 
         mock_transcribe.return_value = (mock_transcript_text, mock_segments, "test-model", 0.0)
         mock_summarize.return_value = (mock_summary, 0.0)
-        mock_embed.return_value = [mock_embedding]
+        mock_embed.return_value = ("openai/text-embedding-3-large", [mock_embedding])
 
         await process_episode(mock_episode.id)
 
