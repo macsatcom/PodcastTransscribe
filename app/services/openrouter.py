@@ -219,4 +219,6 @@ class OpenRouterClient:
         data = result.get("data", [])
         if not data:
             raise ValueError("OpenRouter returned no embedding data")
-        return data[0].get("embedding", [])
+        # Use `or []` to guard against explicit null in the API response
+        # (.get(key, default) only substitutes when the key is absent, not when it is None)
+        return data[0].get("embedding") or []

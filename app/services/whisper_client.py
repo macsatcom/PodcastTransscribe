@@ -9,7 +9,8 @@ logger = logging.getLogger(__name__)
 _endpoint_cache: dict[str, str] = {}
 
 
-def _format_text(text: str, segments: list[dict] | None, gap_threshold: float = 1.5) -> str:
+def _format_text(text: str | None, segments: list[dict] | None, gap_threshold: float = 1.5) -> str:
+    text = text or ""
     if not segments:
         return text
 

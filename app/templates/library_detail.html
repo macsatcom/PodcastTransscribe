@@ -85,7 +85,13 @@
               <span x-show="ep.duration" x-text="' · ' + formatDuration(ep.duration)"></span>
             </div>
             <div x-show="ep.model_used" style="font-size:0.75rem;color:var(--text-tertiary);margin-top:1px;" x-text="ep.model_used + (ep.processing_seconds ? ' · ' + Math.round(ep.processing_seconds / 60) + 'm' : '') + (ep.cost != null ? ' · $' + parseFloat(ep.cost).toFixed(4) : '')"></div>
-            <div x-show="ep.status === 'error' && ep.error_message" style="font-size:0.688rem;color:#f3727f;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" x-text="ep.error_message"></div>
+            <div x-show="ep.status === 'error'" style="margin-top:3px;" x-data="{expanded: false}">
+              <div @click="expanded = !expanded" style="font-size:0.75rem;color:#f3727f;cursor:pointer;display:flex;align-items:flex-start;gap:4px;" title="Click to expand">
+                <span style="flex-shrink:0;margin-top:1px;" x-text="expanded ? '▾' : '▸'"></span>
+                <span x-show="!expanded" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" x-text="ep.error_message || 'Unknown error'"></span>
+                <span x-show="expanded" style="white-space:pre-wrap;word-break:break-word;" x-text="ep.error_message || 'No error detail recorded'"></span>
+              </div>
+            </div>
           </div>
           <div class="flex items-center gap-2 flex-shrink-0">
             <template x-if="ep.queued && ep.status === 'new'">

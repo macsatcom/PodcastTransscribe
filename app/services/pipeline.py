@@ -73,6 +73,8 @@ async def process_episode(episode_id):
                 full_text, segments, model_used, transcribe_cost = await _run_with_timeout(
                     transcribe_audio(session, audio_data), "transcribe"
                 )
+                # Guard: some whisper providers return null for text; treat as empty string.
+                full_text = full_text or ""
                 t2 = time.monotonic()
                 logger.info("EPISODE %s: transcribe took %.0fs", episode_id, t2 - t1)
 
