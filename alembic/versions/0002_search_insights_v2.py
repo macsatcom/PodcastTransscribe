@@ -1,4 +1,4 @@
-"""search & insights v2: chunk metadata, partial ivfflat, FTS GIN, topic chunks
+"""search & insights v2: chunk metadata, partial hnsw, FTS GIN, topic chunks
 
 Adds the columns and indexes that back the 0.18.0 search/insights rewrite.
 All operations are idempotent (``ADD COLUMN IF NOT EXISTS`` /
@@ -27,9 +27,12 @@ Index changes
 -------------
 * Drop legacy full-table ivfflat / cosine index on ``transcript_chunks`` if
   present (named guesses; tolerant of absence).
-* ``ix_chunks_embedding_3072`` -- partial ivfflat on
+* ``ix_chunks_embedding_3072`` -- partial hnsw on
   ``embedding vector_cosine_ops`` filtered to ``embedding_dim = 3072``.
-  Lists tuned for tens-of-thousands-of-rows scale.
+  hnsw is used instead of ivfflat because ivfflat has a hard 2000-dimension
+  ceiling and text-embedding-3-large produces 3072-dim vectors. Creation is
+  wrapped in a DO/EXCEPTION block so the migration completes even on older
+  pgvector builds; search falls back to a sequential scan in that case.
 * ``ix_transcripts_fts_simple`` -- GIN expression index on
   ``to_tsvector('simple', full_text)``. The searcher's ``_safe_lang`` coerces
   unknown FTS configs to ``'simple'``, so this index covers the safe-fallback
@@ -87,13 +90,25 @@ def upgrade() -> None:
     ):
         op.execute(f"DROP INDEX IF EXISTS {legacy}")
 
-    # --- partial ivfflat on 3072-dim rows -------------------------------------
+    # --- partial hnsw on 3072-dim rows ----------------------------------------
+    # ivfflat has a hard 2000-dimension ceiling; hnsw supports up to 16 000
+    # dims in pgvector >= 0.7.0.  Wrapped in a DO block so that older pgvector
+    # installs don't crash the migration — search degrades to seq-scan instead.
     op.execute(
-        "CREATE INDEX IF NOT EXISTS ix_chunks_embedding_3072 "
-        "ON transcript_chunks "
-        "USING ivfflat (embedding vector_cosine_ops) "
-        "WITH (lists = 100) "
-        "WHERE embedding_dim = 3072"
+        """
+        DO $$
+        BEGIN
+            CREATE INDEX IF NOT EXISTS ix_chunks_embedding_3072
+            ON transcript_chunks
+            USING hnsw (embedding vector_cosine_ops)
+            WITH (m = 16, ef_construction = 64)
+            WHERE embedding_dim = 3072;
+        EXCEPTION WHEN others THEN
+            RAISE WARNING
+                'Could not create hnsw index on transcript_chunks.embedding '
+                '(pgvector may be too old): %', SQLERRM;
+        END $$
+        """
     )
 
     # --- FTS expression GIN index on transcripts.full_text --------------------
