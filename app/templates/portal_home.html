@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ portal.title }}</title>
+  <script src="https://unpkg.com/alpinejs@3.14.8" defer></script>
+  <style>
+    :root {
+      --bg-body: #0f172a;
+      --bg-card: rgba(0,0,0,0.42);
+      --bg-card-hover: rgba(0,0,0,0.58);
+      --bg-elevated: rgba(0,0,0,0.30);
+      --bg-input: rgba(0,0,0,0.48);
+      --border: rgba(255,255,255,0.10);
+      --text: #f1f5f9;
+      --text-secondary: #94a3b8;
+      --text-dim: #64748b;
+      --accent: #10b981;
+      --accent-hover: #059669;
+      --red: #f87171;
+      --blue-tag: #1d4ed8;
+      --green-tag: #047857;
+      --radius: 12px;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+      background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #0f172a 100%);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+    body.has-bg { background: none; }
+    .bg-image { position: fixed; inset: 0; z-index: -1; background-position: center; background-size: cover; }
+    .overlay { min-height: 100vh; }
+    .overlay.has-bg { background: linear-gradient(rgba(0,0,0,0.60), rgba(0,0,0,0.85)); }
+    .container { max-width: 860px; margin: 0 auto; padding: 48px 20px; }
+    .header { text-align: center; margin-bottom: 40px; }
+    .header h1 { font-size: 2.25rem; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 8px; color: #fff; }
+    .header p { font-size: 1.05rem; color: var(--text-secondary); }
+    .header-logo { width: 72px; height: 72px; border-radius: 12px; object-fit: cover; margin-bottom: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.4); }
+
+    /* Tab bar */
+    .tab-bar { display: flex; gap: 0; margin-bottom: 32px; border-bottom: 1px solid var(--border); }
+    .tab-btn {
+      padding: 10px 24px; font-size: 0.875rem; font-weight: 600;
+      border: none; background: transparent; cursor: pointer;
+      border-bottom: 2px solid transparent; margin-bottom: -1px;
+      transition: color 0.15s, border-color 0.15s; color: var(--text-secondary);
+      font-family: inherit;
+    }
+    .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .tab-btn:hover:not(.active) { color: var(--text); }
+
+    /* Search form */
+    .search-form { display: flex; flex-direction: column; gap: 14px; margin-bottom: 36px; }
+    .search-form label { font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.06em; display: block; margin-bottom: 6px; }
+    .search-form input, .search-form textarea {
+      width: 100%; padding: 14px 16px; font-size: 1rem; color: var(--text);
+      background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius);
+      outline: none; font-family: inherit; transition: border-color 0.2s, background 0.2s;
+    }
+    .search-form input:focus, .search-form textarea:focus { border-color: var(--accent); background: rgba(0,0,0,0.60); }
+    .search-form input::placeholder, .search-form textarea::placeholder { color: var(--text-dim); }
+    .search-form textarea { resize: vertical; min-height: 110px; }
+    .btn-search {
+      display: inline-flex; align-items: center; justify-content: center;
+      padding: 14px 48px; font-size: 1rem; font-weight: 600;
+      color: #fff; background: var(--accent); border: none; border-radius: var(--radius);
+      cursor: pointer; font-family: inherit; transition: background 0.2s, transform 0.1s; align-self: center;
+    }
+    .btn-search:hover { background: var(--accent-hover); }
+    .btn-search:active { transform: scale(0.97); }
+
+    /* Result cards */
+    .results { display: flex; flex-direction: column; gap: 12px; }
+    .result-card {
+      display: block; padding: 18px 20px;
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
+      text-decoration: none; color: inherit;
+      transition: background 0.2s, border-color 0.2s;
+      -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+    }
+    .result-card:hover { background: var(--bg-card-hover); border-color: rgba(255,255,255,0.25); }
+    .result-header { display: flex; align-items: flex-start; gap: 12px; }
+    .result-cover { width: 44px; height: 44px; border-radius: 6px; object-fit: cover; flex-shrink: 0; }
+    .result-body { flex: 1; min-width: 0; }
+    .result-title-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .result-title { font-size: 0.9rem; font-weight: 600; color: #fff; }
+    .tag { font-size: 0.688rem; font-weight: 600; padding: 2px 8px; border-radius: 4px; flex-shrink: 0; }
+    .tag-fts { background: var(--blue-tag); color: #bfdbfe; }
+    .tag-semantic { background: var(--green-tag); color: #a7f3d0; }
+    .result-snippet { font-size: 0.813rem; color: var(--text-secondary); line-height: 1.6; margin-top: 4px; }
+    .result-snippet mark { background: rgba(16,185,129,0.3); color: #fff; padding: 1px 3px; border-radius: 2px; }
+    .result-meta { font-size: 0.75rem; color: var(--text-dim); margin-top: 6px; }
+    .result-actions { display: flex; justify-content: flex-end; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+    .btn-ask {
+      font-size: 0.75rem; font-weight: 600; color: var(--accent); background: transparent;
+      border: 1px solid var(--border); border-radius: 6px; padding: 5px 12px;
+      cursor: pointer; font-family: inherit; transition: background 0.2s;
+    }
+    .btn-ask:hover { background: rgba(16,185,129,0.1); }
+
+    /* Cards (Insights) */
+    .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
+    .input { width: 100%; padding: 12px 16px; font-size: 0.9rem; color: var(--text); background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius); outline: none; font-family: inherit; transition: border-color 0.2s; }
+    .input:focus { border-color: var(--accent); }
+    .input::placeholder { color: var(--text-dim); }
+    .btn { display: inline-flex; align-items: center; justify-content: center; padding: 10px 20px; font-size: 0.875rem; font-weight: 600; color: #fff; background: var(--accent); border: none; border-radius: var(--radius); cursor: pointer; font-family: inherit; transition: background 0.2s; }
+    .btn:hover { background: #059669; }
+    .btn:disabled { opacity: 0.5; cursor: default; }
+    .btn-sm { padding: 7px 14px; font-size: 0.8rem; }
+    .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    .btn-ghost:hover { background: rgba(255,255,255,0.06); }
+    .section-title { font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 12px; }
+    .badge { display: inline-block; font-size: 0.688rem; font-weight: 600; padding: 2px 8px; border-radius: 4px; }
+    .badge-blue { background: #1d4ed8; color: #bfdbfe; }
+    .badge-green { background: #047857; color: #a7f3d0; }
+    .flex { display: flex; }
+    .flex-col { flex-direction: column; }
+    .gap-2 { gap: 8px; }
+    .gap-3 { gap: 12px; }
+    .items-center { align-items: center; }
+    .justify-between { justify-content: space-between; }
+    .justify-end { justify-content: flex-end; }
+    .flex-1 { flex: 1; }
+    .text-sm { font-size: 0.875rem; }
+    .text-xs { font-size: 0.75rem; }
+
+    /* Modal */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 20px; }
+    .modal { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; width: 100%; max-width: 600px; max-height: 80vh; overflow-y: auto; }
+    .modal-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 16px; }
+
+    /* Misc */
+    .empty { text-align: center; padding: 32px; color: var(--text-dim); font-size: 0.9rem; }
+    .spinner { display: inline-block; width: 20px; height: 20px; border: 2px solid rgba(255,255,255,0.2); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.6s linear infinite; margin-right: 8px; vertical-align: middle; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    [x-cloak] { display: none !important; }
+  </style>
+</head>
+<body :class="hasBg ? 'has-bg' : ''"
+      x-data="portalHome()" x-init="init()" x-cloak>
+
+  <div x-show="hasBg" class="bg-image" :style="'background-image: url(' + bgImage + ')'"></div>
+
+  <div class="overlay" :class="hasBg ? 'has-bg' : ''">
+    <div class="container">
+
+      <!-- Header -->
+      <div class="header">
+        <img x-show="portal.secondary_image" :src="portal.secondary_image" class="header-logo">
+        <h1 x-text="portal.title"></h1>
+        <p x-show="portal.description" x-text="portal.description"></p>
+      </div>
+
+      <!-- Tab bar -->
+      <div class="tab-bar">
+        <button class="tab-btn" :class="tab==='search' ? 'active' : ''" @click="setTab('search')">Search</button>
+        <button class="tab-btn" :class="tab==='insights' ? 'active' : ''" @click="setTab('insights')">Insights</button>
+      </div>
+
+      <!-- ───────── SEARCH TAB ───────── -->
+      <div x-show="tab==='search'">
+        <div class="search-form">
+          <div>
+            <label>Keywords</label>
+            <input type="text" x-model="keyword" @keyup.enter="doSearch()"
+                   placeholder="climate change, renewable energy, artificial intelligence...">
+          </div>
+          <div>
+            <label>Natural language</label>
+            <textarea x-model="natural" @keydown.enter.prevent="doSearch()"
+                      placeholder="a conversation about the history of space exploration and Mars missions..."></textarea>
+          </div>
+          <button @click="doSearch()" class="btn-search" :disabled="searchLoading">
+            <span x-show="searchLoading"><span class="spinner"></span></span>
+            <span x-text="searchLoading ? 'Searching...' : 'Search'"></span>
+          </button>
+        </div>
+
+        <div class="results">
+          <p x-show="searched && !searchLoading && results.length === 0 && !(searchMeta.threshold && searchMeta.candidate_count === 0)" class="empty">No results found.</p>
+          <p x-show="searched && !searchLoading && results.length === 0 && searchMeta.threshold && searchMeta.candidate_count === 0" class="empty">
+            No chunks scored above the relevance threshold (cosine distance &le; <span x-text="searchMeta.threshold?.toFixed(2)"></span>).
+          </p>
+          <template x-for="r in results" :key="r.episode_id + (r.chunk_index || '')">
+            <div style="display:flex;flex-direction:column;gap:8px;">
+              <a :href="'/episodes/' + r.episode_id + '?q=' + encodeURIComponent(keyword || natural)"
+                 class="result-card">
+                <div class="result-header">
+                  <template x-if="r.cover_url">
+                    <img :src="r.cover_url" class="result-cover">
+                  </template>
+                  <div class="result-body">
+                    <div class="result-title-row">
+                      <span class="result-title" x-text="r.episode_title"></span>
+                      <span class="tag" :class="r.type === 'fts' ? 'tag-fts' : 'tag-semantic'"
+                            x-text="r.type === 'fts' ? 'Keyword' : 'Semantic'"></span>
+                    </div>
+                    <div class="result-snippet" x-html="r.snippet"></div>
+                    <div class="result-meta">
+                      <span x-text="r.type === 'fts' ? 'Match: ' + keyword : 'Relevance: ' + (r.score || 0).toFixed(2)"></span>
+                    </div>
+                  </div>
+                </div>
+              </a>
+              <template x-if="r.chunks && r.chunks.length > 1">
+                <div style="display:flex;flex-direction:column;gap:4px;padding-left:12px;">
+                  <template x-for="c in r.chunks.slice(1)" :key="c.chunk_index">
+                    <a :href="'/episodes/' + r.episode_id + (c.start_time != null ? '?t=' + Math.floor(c.start_time) : '')"
+                       style="display:block;color:rgba(255,255,255,0.7);text-decoration:none;font-size:0.75rem;line-height:1.4;padding:6px 10px;background:rgba(255,255,255,0.04);border-radius:4px;">
+                      <span x-show="c.start_time != null" style="color:var(--accent);font-weight:600;margin-right:6px;font-variant-numeric:tabular-nums;"
+                            x-text="formatTime(c.start_time)"></span>
+                      <span x-text="c.text.length > 220 ? c.text.slice(0, 220) + '\u2026' : c.text"></span>
+                    </a>
+                  </template>
+                </div>
+              </template>
+              <div class="result-actions">
+                <button class="btn-ask" @click="askAbout(r)">Ask about this &rarr;</button>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- ───────── INSIGHTS TAB ───────── -->
+      <div x-show="tab==='insights'" x-cloak>
+        <div style="display:flex;flex-direction:column;gap:24px;">
+
+          <!-- Ask a Question -->
+          <div class="card" style="padding:20px;">
+            <h2 class="section-title">Ask a Question</h2>
+            <div style="display:flex;gap:12px;margin-bottom:12px;">
+              <input type="text" x-model="ragQuestion" @keyup.enter="askQuestion()"
+                     placeholder="e.g. How many episodes discuss climate change?"
+                     class="input" style="flex:1;">
+              <button @click="askQuestion()" :disabled="ragLoading" class="btn btn-sm"
+                      x-text="ragLoading ? '...' : 'Ask'"></button>
+            </div>
+            <div x-show="ragAnswer" style="background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:8px;padding:16px;">
+              <div x-show="ragLowConfidence" style="color:#d4a056;font-size:0.688rem;text-transform:uppercase;font-weight:600;margin-bottom:6px;">Low confidence</div>
+              <div style="font-size:0.875rem;line-height:1.7;white-space:pre-wrap;" x-text="ragAnswer"></div>
+              <template x-if="ragSources.length > 0">
+                <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
+                  <p style="font-size:0.688rem;color:var(--text-dim);margin-bottom:6px;">Sources:</p>
+                  <div style="display:flex;flex-direction:column;gap:4px;">
+                    <template x-for="(s, i) in ragSources" :key="i">
+                      <a :href="s.start_time != null
+                                  ? '/episodes/' + s.episode_id + '?t=' + Math.floor(s.start_time)
+                                  : '/episodes/' + s.episode_id"
+                         style="display:block;font-size:0.75rem;padding:6px 8px;border-radius:4px;background:rgba(255,255,255,0.04);color:var(--text);text-decoration:none;border:1px solid var(--border);">
+                        <span style="font-weight:600;" x-text="s.citation"></span>
+                        <span style="color:var(--text-dim);" x-text="' \u2014 ' + (s.snippet.length > 140 ? s.snippet.slice(0, 140) + '\u2026' : s.snippet)"></span>
+                      </a>
+                    </template>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <!-- Topics -->
+          <div class="card" style="padding:20px;">
+            <h2 class="section-title">Topics</h2>
+            <div x-show="topicsLoading" style="color:var(--text-dim);padding:16px 0;">
+              <span class="spinner"></span> Loading...
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px;">
+              <template x-for="t in topics" :key="t.id">
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:rgba(0,0,0,0.2);border-radius:8px;border:1px solid var(--border);">
+                  <div style="display:flex;align-items:center;gap:12px;">
+                    <span class="badge" :class="t.source === 'auto' ? 'badge-blue' : 'badge-green'" x-text="t.source === 'auto' ? 'auto' : 'custom'"></span>
+                    <span style="font-size:0.9rem;font-weight:500;" x-text="t.label"></span>
+                    <span style="font-size:0.688rem;color:var(--text-dim);" x-text="t.episode_count + ' episodes'"></span>
+                  </div>
+                  <button @click="viewEpisodes(t)" class="btn btn-sm btn-ghost">View</button>
+                </div>
+              </template>
+              <p x-show="!topicsLoading && topics.length === 0" style="color:var(--text-dim);padding:16px;text-align:center;">
+                No topics yet.
+              </p>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Episode modal (Topics) -->
+      <div x-show="modal" x-cloak class="modal-overlay">
+        <div class="modal">
+          <h2 class="modal-title" x-text="modalTopic?.label"></h2>
+
+          <template x-if="(modalTopic?.representative_chunks || []).length > 0">
+            <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:16px;padding:12px;background:rgba(0,0,0,0.2);border-radius:8px;">
+              <div style="font-size:0.688rem;text-transform:uppercase;color:var(--text-dim);">Representative excerpts</div>
+              <template x-for="chunk in modalTopic.representative_chunks" :key="chunk.chunk_id">
+                <a :href="chunk.start_time != null
+                            ? '/episodes/' + chunk.episode_id + '?t=' + Math.floor(chunk.start_time)
+                            : '/episodes/' + chunk.episode_id"
+                   style="display:block;padding:8px 10px;border-radius:6px;background:var(--bg-card);border:1px solid var(--border);color:var(--text);text-decoration:none;font-size:0.8rem;">
+                  <span style="color:var(--text-dim);font-size:0.688rem;"
+                        x-text="chunk.start_time != null ? formatTime(chunk.start_time) + ' \u2014 ' : ''"></span>
+                  <span x-text="chunk.text.length > 220 ? chunk.text.slice(0, 220) + '\u2026' : chunk.text"></span>
+                </a>
+              </template>
+            </div>
+          </template>
+
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <template x-for="ep in modalEpisodes" :key="ep.id">
+              <a :href="'/episodes/' + ep.id" style="display:flex;gap:12px;padding:10px 12px;border-radius:6px;text-decoration:none;color:inherit;"
+                 @mouseenter="$el.style.background='rgba(255,255,255,0.06)'" @mouseleave="$el.style.background='transparent'">
+                <span style="font-size:0.9rem;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                  <span style="font-weight:500;" x-text="ep.title"></span>
+                  <span style="font-size:0.688rem;color:var(--text-dim);margin-left:8px;" x-text="ep.podcast_title"></span>
+                </span>
+              </a>
+            </template>
+          </div>
+          <div style="display:flex;justify-content:flex-end;margin-top:16px;">
+            <button @click="modal = false" class="btn btn-sm btn-ghost">Close</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+  function portalHome() {
+    return {
+      portal: {
+        title: {{ portal.title|tojson }},
+        description: {{ portal.description|tojson }},
+        background_image: {{ portal.background_image|tojson }},
+        secondary_image: {{ portal.secondary_image|tojson }},
+        podcast_ids: {{ portal.podcast_ids|tojson }},
+      },
+      bgImage: '{{ portal.background_image or portal.secondary_image or "" }}',
+      hasBg: !!({{ portal.background_image|tojson }} || {{ portal.secondary_image|tojson }}),
+
+      tab: 'search',
+
+      // Search state
+      keyword: '', natural: '', searchLoading: false, searched: false,
+      results: [], searchMeta: { threshold: null, model: null, candidate_count: 0 },
+
+      // Insights state
+      topics: [], topicsLoading: false,
+      ragQuestion: '', ragAnswer: '', ragSources: [], ragLoading: false, ragLowConfidence: false,
+      modal: false, modalEpisodes: [], modalTopic: null,
+
+      async init() {
+        const hash = window.location.hash.replace('#', '');
+        if (hash === 'insights') { this.tab = 'insights'; await this.loadTopics(); }
+      },
+
+      setTab(name) {
+        this.tab = name;
+        history.replaceState(null, '', '#' + name);
+        if (name === 'insights' && this.topics.length === 0) this.loadTopics();
+      },
+
+      askAbout(r) {
+        this.ragQuestion = r.episode_title || '';
+        this.setTab('insights');
+      },
+
+      formatTime(secs) {
+        if (secs == null) return '';
+        const s = Math.floor(secs);
+        const h = Math.floor(s / 3600);
+        const m = Math.floor((s % 3600) / 60);
+        const sec = s % 60;
+        const pad = (n) => String(n).padStart(2, '0');
+        return h > 0 ? `${h}:${pad(m)}:${pad(sec)}` : `${m}:${pad(sec)}`;
+      },
+
+      async doSearch() {
+        if (!this.keyword.trim() && !this.natural.trim()) return;
+        this.searchLoading = true;
+        this.searched = true;
+        const params = new URLSearchParams();
+        if (this.portal.podcast_ids && this.portal.podcast_ids.length > 0)
+          params.set('podcast_ids', this.portal.podcast_ids.join(','));
+        if (this.keyword.trim() && this.natural.trim()) {
+          params.set('q', this.keyword); params.set('nq', this.natural);
+        } else if (this.keyword.trim()) {
+          params.set('q', this.keyword); params.set('mode', 'fts');
+        } else {
+          params.set('q', this.natural); params.set('mode', 'semantic');
+        }
+        try {
+          const r = await fetch('/api/search?' + params);
+          const data = await r.json();
+          this.results = data.results || [];
+          this.searchMeta = { threshold: data.threshold ?? null, model: data.model ?? null, candidate_count: data.candidate_count ?? 0 };
+        } catch(e) {
+          this.results = [];
+          this.searchMeta = { threshold: null, model: null, candidate_count: 0 };
+        }
+        this.searchLoading = false;
+      },
+
+      async loadTopics() {
+        this.topicsLoading = true;
+        try {
+          const ids = (this.portal.podcast_ids || []).join(',');
+          const r = await fetch('/api/insights/topics' + (ids ? '?podcast_ids=' + ids : ''));
+          this.topics = await r.json();
+        } catch(e) { console.error(e); }
+        this.topicsLoading = false;
+      },
+
+      async viewEpisodes(t) {
+        const ids = (this.portal.podcast_ids || []).join(',');
+        const r = await fetch('/api/insights/topics/' + t.id + '/episodes' + (ids ? '?podcast_ids=' + ids : ''));
+        this.modalEpisodes = await r.json();
+        this.modalTopic = t;
+        this.modal = true;
+      },
+
+      async askQuestion() {
+        if (!this.ragQuestion.trim()) return;
+        this.ragLoading = true;
+        this.ragAnswer = '';
+        this.ragSources = [];
+        this.ragLowConfidence = false;
+        try {
+          const r = await fetch('/api/insights/rag', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ question: this.ragQuestion, podcast_ids: this.portal.podcast_ids }),
+          });
+          const data = await r.json();
+          this.ragAnswer = data.answer || 'No answer.';
+          this.ragSources = data.sources || [];
+          this.ragLowConfidence = !!data.low_confidence;
+        } catch(e) { this.ragAnswer = 'Error: ' + e.message; }
+        this.ragLoading = false;
+      },
+    };
+  }
+  </script>
+</body>
+</html>

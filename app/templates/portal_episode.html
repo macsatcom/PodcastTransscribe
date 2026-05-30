@@ -27,70 +27,67 @@
       -webkit-font-smoothing: antialiased;
     }
     body.has-bg { background: none; }
-    .bg-image {
-      position: fixed; inset: 0; z-index: -1;
-      background-position: center; background-size: cover;
-    }
+    .bg-image { position: fixed; inset: 0; z-index: -1; background-position: center; background-size: cover; }
     .overlay { min-height: 100vh; }
-    .overlay.has-bg {
-      background: linear-gradient(rgba(0,0,0,0.60), rgba(0,0,0,0.85));
-    }
-    .container {
-      max-width: 860px; margin: 0 auto; padding: 40px 20px;
-    }
+    .overlay.has-bg { background: linear-gradient(rgba(0,0,0,0.60), rgba(0,0,0,0.85)); }
+    .container { max-width: 860px; margin: 0 auto; padding: 40px 20px; }
     .back-link {
       display: inline-flex; align-items: center; gap: 4px;
       font-size: 0.875rem; color: var(--accent); text-decoration: none;
-      font-weight: 500; margin-bottom: 24px;
-      transition: color 0.2s;
+      font-weight: 500; margin-bottom: 24px; transition: color 0.2s;
     }
     .back-link:hover { color: #34d399; }
     .back-link svg { width: 14px; height: 14px; }
-    .page-logo {
-      width: 56px; height: 56px; border-radius: 10px;
-      object-fit: cover; margin-bottom: 20px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-    }
-    .episode-title {
-      font-size: 1.75rem; font-weight: 700; color: #fff;
-      margin-bottom: 6px; letter-spacing: -0.01em;
-    }
-    .episode-date {
-      font-size: 0.813rem; color: var(--text-dim);
-      margin-bottom: 28px;
-    }
+    .page-logo { width: 56px; height: 56px; border-radius: 10px; object-fit: cover; margin-bottom: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
+    .episode-title { font-size: 1.75rem; font-weight: 700; color: #fff; margin-bottom: 6px; letter-spacing: -0.01em; }
+    .episode-date { font-size: 0.813rem; color: var(--text-dim); margin-bottom: 28px; }
     .summary-card {
       padding: 18px 20px; margin-bottom: 24px;
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
       -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
     }
-    .summary-card h2 {
-      font-size: 0.8rem; font-weight: 700;
-      color: var(--accent); text-transform: uppercase;
-      letter-spacing: 0.06em; margin-bottom: 10px;
+    .summary-card h2 { font-size: 0.8rem; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; }
+    .summary-card p { font-size: 0.9rem; color: var(--text-secondary); line-height: 1.6; }
+
+    /* Chunk transcript */
+    .transcript-card {
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
+      -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); overflow: hidden;
     }
-    .summary-card p {
-      font-size: 0.9rem; color: var(--text-secondary);
-      line-height: 1.6;
+    .transcript-header {
+      padding: 14px 20px; border-bottom: 1px solid var(--border);
+      font-size: 0.8rem; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.06em;
     }
-    .transcript {
-      font-size: 0.888rem; color: var(--text-secondary);
+    .chunk-row {
+      display: flex; gap: 0; border-bottom: 1px solid rgba(255,255,255,0.05);
+      text-decoration: none; color: inherit;
+      transition: background 0.15s;
+    }
+    .chunk-row:last-child { border-bottom: none; }
+    .chunk-row:hover { background: rgba(255,255,255,0.04); }
+    .chunk-row.highlighted { background: rgba(16,185,129,0.10); }
+    .chunk-ts {
+      flex-shrink: 0; width: 62px; padding: 14px 12px;
+      font-size: 0.75rem; font-weight: 600; color: var(--accent);
+      font-variant-numeric: tabular-nums; text-align: right;
+      border-right: 1px solid rgba(255,255,255,0.05);
+    }
+    .chunk-ts-empty { width: 62px; flex-shrink: 0; border-right: 1px solid rgba(255,255,255,0.05); }
+    .chunk-text {
+      flex: 1; padding: 14px 16px;
+      font-size: 0.875rem; color: var(--text-secondary); line-height: 1.7;
+    }
+    .chunk-text mark { background: rgba(16,185,129,0.3); color: #fff; padding: 1px 3px; border-radius: 2px; }
+
+    /* Fallback: raw text blob */
+    .transcript-raw {
+      padding: 20px; font-size: 0.888rem; color: var(--text-secondary);
       line-height: 1.75; white-space: pre-wrap; word-wrap: break-word;
     }
-    .transcript mark {
-      background: rgba(16,185,129,0.3); color: #fff;
-      padding: 1px 3px; border-radius: 2px;
-    }
+    .transcript-raw mark { background: rgba(16,185,129,0.3); color: #fff; padding: 1px 3px; border-radius: 2px; }
+
     .loading { text-align: center; padding: 48px; color: var(--text-dim); font-size: 0.9rem; }
-    .spinner {
-      display: inline-block; width: 20px; height: 20px;
-      border: 2px solid rgba(255,255,255,0.2);
-      border-top-color: var(--accent);
-      border-radius: 50%; animation: spin 0.6s linear infinite;
-      margin-right: 8px; vertical-align: middle;
-    }
+    .spinner { display: inline-block; width: 20px; height: 20px; border: 2px solid rgba(255,255,255,0.2); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.6s linear infinite; margin-right: 8px; vertical-align: middle; }
     @keyframes spin { to { transform: rotate(360deg); } }
     [x-cloak] { display: none !important; }
   </style>
@@ -120,7 +117,26 @@
           <p x-text="summary"></p>
         </div>
 
-        <div class="transcript" x-html="highlightedText"></div>
+        <!-- Chunk-level transcript (when timestamps available) -->
+        <div x-show="hasTimestamps" class="transcript-card">
+          <div class="transcript-header">Transcript</div>
+          <template x-for="(c, i) in chunks" :key="c.chunk_index">
+            <a :href="c.start_time != null ? '?t=' + Math.floor(c.start_time) : '#'"
+               class="chunk-row"
+               :class="highlightedChunk === i ? 'highlighted' : ''"
+               :id="'chunk-' + i">
+              <span x-show="c.start_time != null" class="chunk-ts" x-text="formatTime(c.start_time)"></span>
+              <span x-show="c.start_time == null" class="chunk-ts-empty"></span>
+              <span class="chunk-text" x-html="highlightChunk(c.text)"></span>
+            </a>
+          </template>
+        </div>
+
+        <!-- Fallback: full text blob (no timestamps) -->
+        <div x-show="!hasTimestamps && episode.transcript?.full_text" class="transcript-card">
+          <div class="transcript-header">Transcript</div>
+          <div class="transcript-raw" x-html="highlightedFullText"></div>
+        </div>
       </div>
 
       <div x-show="loading" class="loading"><span class="spinner"></span>Loading...</div>
@@ -137,18 +153,65 @@
         loading: true,
         episode: {},
         summary: '',
+        chunks: [],
+        highlightedChunk: -1,
 
         async loadEpisode() {
           try {
-            const r = await fetch('/api/episodes/' + this.episodeId);
-            const data = await r.json();
+            const [epRes, chunksRes] = await Promise.all([
+              fetch('/api/episodes/' + this.episodeId),
+              fetch('/api/episodes/' + this.episodeId + '/chunks'),
+            ]);
+            const data = await epRes.json();
             this.episode = data;
             this.summary = data.transcript?.summary || '';
-          } catch(e) {}
+            this.chunks = await chunksRes.json();
+          } catch(e) { console.error(e); }
           this.loading = false;
+          this.$nextTick(() => this.scrollToTimestamp());
         },
 
-        get highlightedText() {
+        get hasTimestamps() {
+          return this.chunks.length > 0 && this.chunks.some(c => c.start_time != null);
+        },
+
+        scrollToTimestamp() {
+          const params = new URLSearchParams(window.location.search);
+          const t = parseFloat(params.get('t'));
+          if (!t || !this.hasTimestamps) return;
+          // Find the chunk whose start_time is closest to (and ≤) t
+          let best = 0;
+          for (let i = 0; i < this.chunks.length; i++) {
+            if (this.chunks[i].start_time != null && this.chunks[i].start_time <= t) best = i;
+          }
+          this.highlightedChunk = best;
+          this.$nextTick(() => {
+            const el = document.getElementById('chunk-' + best);
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          });
+        },
+
+        formatTime(secs) {
+          if (secs == null) return '';
+          const s = Math.floor(secs);
+          const h = Math.floor(s / 3600);
+          const m = Math.floor((s % 3600) / 60);
+          const sec = s % 60;
+          const pad = (n) => String(n).padStart(2, '0');
+          return h > 0 ? `${h}:${pad(m)}:${pad(sec)}` : `${m}:${pad(sec)}`;
+        },
+
+        highlightChunk(text) {
+          const params = new URLSearchParams(window.location.search);
+          const q = params.get('q');
+          if (!q) return text;
+          return text.replace(
+            new RegExp('(' + q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi'),
+            '<mark>$1</mark>'
+          );
+        },
+
+        get highlightedFullText() {
           if (!this.episode?.transcript?.full_text) return '';
           const params = new URLSearchParams(window.location.search);
           const highlight = params.get('q');
@@ -160,7 +223,7 @@
             );
           }
           return text;
-        }
+        },
       };
     }
   </script>
