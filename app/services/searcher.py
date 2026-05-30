@@ -25,7 +25,7 @@ EMBEDDING_MODEL_KEY = "embedding_model"
 DEFAULT_EMBEDDING_MODEL = "openai/text-embedding-3-large"
 
 THRESHOLD_KEY = "semantic_distance_threshold"
-DEFAULT_DISTANCE_THRESHOLD = 0.40
+DEFAULT_DISTANCE_THRESHOLD = 0.65  # calibrated for text-embedding-3-large query→chunk distances
 
 # Diversity floor: a supporting chunk in the same episode must be at least
 # this much further from the query than the episode's best chunk to be kept.

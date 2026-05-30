@@ -4,6 +4,18 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.3] - 2026-05-30
+
+### Fixed
+
+- **Semantic search returned no results** — the default cosine-distance
+  threshold was 0.40, calibrated against chunk-to-chunk distances. Real
+  query-to-document distances with `text-embedding-3-large` are typically
+  0.45–0.65 for relevant content; nearly every genuine result was filtered
+  out before it could reach the UI. Default raised to 0.65. The threshold
+  remains configurable via `semantic_distance_threshold` in the `settings`
+  table without a code change.
+
 ## [0.18.2] - 2026-05-30
 
 ### Fixed
