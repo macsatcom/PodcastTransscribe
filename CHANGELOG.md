@@ -4,6 +4,34 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.19.0] - 2026-05-30
+
+### Added
+
+- **Unified Search & Insights tabbed view** — Search and Insights are now a
+  single page (`/search`) with `#search` / `#insights` hash-controlled tabs.
+  The `/insights` route redirects to `/search#insights`. The navigation link
+  is updated to "Search & Insights".
+- **Portal unified tabbed home page** — `portal_search.html` and
+  `portal_insights.html` merged into a single `portal_home.html` with the same
+  tab model. The portal `/insights` route now redirects to `/#insights`.
+- **Chunk-level transcript viewer on portal episode pages** — episode pages
+  load `/api/episodes/{id}/chunks` and render each chunk with its timestamp.
+  Clicking a timestamp row appends `?t=<seconds>` and highlights + scrolls to
+  the nearest chunk. Falls back to the `full_text` blob for episodes
+  transcribed before 0.18.0 (where `start_time`/`end_time` are NULL).
+- **`GET /api/episodes/{id}/chunks` endpoint** — returns
+  `[{chunk_index, text, start_time, end_time}]` ordered by `chunk_index`.
+- **"Ask about this" button on search results** — switches to the Insights tab
+  and pre-fills the RAG question input with the episode title, enabling
+  one-click deep-dive from a search result.
+
+### Removed
+
+- `app/templates/insights.html` — superseded by the tabbed `search.html`.
+- `app/templates/portal_search.html` — superseded by `portal_home.html`.
+- `app/templates/portal_insights.html` — superseded by `portal_home.html`.
+
 ## [0.18.3] - 2026-05-30
 
 ### Fixed
