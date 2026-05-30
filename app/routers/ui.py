@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
 
@@ -42,8 +42,8 @@ async def admin_page(request: Request):
 
 
 @router.get("/insights", response_class=HTMLResponse)
-async def insights_page(request: Request):
-    return templates.TemplateResponse(request, "insights.html")
+async def insights_redirect():
+    return RedirectResponse(url="/search#insights", status_code=302)
 
 
 @router.get("/library/{abs_item_id}", response_class=HTMLResponse)
