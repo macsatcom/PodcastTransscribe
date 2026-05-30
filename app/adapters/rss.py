@@ -6,6 +6,7 @@ import feedparser
 import httpx
 
 from app.adapters.base import BaseSourceAdapter, EpisodeMetadata
+from app.utils.html import strip_html
 
 
 class RSSSourceAdapter(BaseSourceAdapter):
@@ -47,7 +48,7 @@ class RSSSourceAdapter(BaseSourceAdapter):
             episodes.append(EpisodeMetadata(
                 guid=entry.get("id", entry.get("link", "")),
                 title=entry.get("title", ""),
-                description=entry.get("description", entry.get("summary", "")),
+                description=strip_html(entry.get("description", entry.get("summary", ""))),
                 audio_url=audio_url or "",
                 duration_seconds=duration,
                 published_at=published,
