@@ -119,6 +119,23 @@
       <div x-show="modal" x-cloak style="position:fixed; inset:0; background:rgba(0,0,0,0.6); display:flex; align-items:center; justify-content:center; z-index:100; padding:20px;">
         <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:24px; width:100%; max-width:600px; max-height:80vh; overflow-y:auto;">
           <h2 style="font-size:1.1rem; font-weight:700; margin-bottom:16px;" x-text="modalTopic?.label"></h2>
+
+          <template x-if="(modalTopic?.representative_chunks || []).length > 0">
+            <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:16px; padding:12px; background:rgba(0,0,0,0.2); border-radius:8px;">
+              <div style="font-size:0.688rem; text-transform:uppercase; color:var(--text-dim);">Representative excerpts</div>
+              <template x-for="chunk in modalTopic.representative_chunks" :key="chunk.chunk_id">
+                <a :href="chunk.start_time != null
+                            ? '/episodes/' + chunk.episode_id + '?t=' + Math.floor(chunk.start_time)
+                            : '/episodes/' + chunk.episode_id"
+                   style="display:block; padding:8px 10px; border-radius:6px; background:var(--bg-card); border:1px solid var(--border); color:var(--text); text-decoration:none; font-size:0.8rem;">
+                  <span style="color:var(--text-dim); font-size:0.688rem;"
+                        x-text="chunk.start_time != null ? formatTime(chunk.start_time) + ' — ' : ''"></span>
+                  <span x-text="chunk.text.length > 220 ? chunk.text.slice(0, 220) + '…' : chunk.text"></span>
+                </a>
+              </template>
+            </div>
+          </template>
+
           <div style="display:flex; flex-direction:column; gap:4px;">
             <template x-for="ep in modalEpisodes" :key="ep.id">
               <a :href="'/episodes/' + ep.id" style="display:flex; gap:12px; padding:10px 12px; border-radius:6px; text-decoration:none; color:inherit;"
@@ -147,6 +164,14 @@ function portalInsights() {
     topics: [], loading: true,
     ragQuestion: '', ragAnswer: '', ragSources: [], ragLoading: false,
     modal: false, modalEpisodes: [], modalTopic: null,
+
+    formatTime(seconds) {
+      if (seconds == null) return '';
+      const s = Math.floor(seconds);
+      const m = Math.floor(s / 60);
+      const sec = s % 60;
+      return m + ':' + sec.toString().padStart(2, '0');
+    },
 
     async loadTopics() {
       try {

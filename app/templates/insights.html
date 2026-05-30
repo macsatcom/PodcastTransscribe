@@ -121,9 +121,28 @@
 
     <!-- Episode Modal -->
     <div x-show="episodeModal" x-cloak class="modal-overlay">
-      <div class="modal" style="max-width:600px;">
-        <h2 class="modal-title" x-text="'Episodes: ' + episodeModalTopic.label"></h2>
-        <div class="flex flex-col gap-1 mt-3" style="max-height:400px;overflow-y:auto;">
+      <div class="modal" style="max-width:680px;">
+        <h2 class="modal-title" x-text="'Topic: ' + episodeModalTopic.label"></h2>
+
+        <template x-if="(episodeModalTopic.representative_chunks || []).length > 0">
+          <div class="flex flex-col gap-2 mt-3" style="padding:12px;background:var(--bg-elevated);border-radius:8px;">
+            <div class="text-2xs text-tertiary uppercase">Representative excerpts</div>
+            <template x-for="chunk in episodeModalTopic.representative_chunks" :key="chunk.chunk_id">
+              <a :href="chunk.start_time != null
+                          ? '/episodes/' + chunk.episode_id + '?t=' + Math.floor(chunk.start_time)
+                          : '/episodes/' + chunk.episode_id"
+                 class="text-xs"
+                 style="display:block;padding:8px 10px;border-radius:6px;background:var(--bg-surface);border:1px solid var(--border-subtle);color:var(--text-primary);text-decoration:none;">
+                <span class="text-tertiary text-2xs"
+                      x-text="chunk.start_time != null ? formatTime(chunk.start_time) + ' — ' : ''"></span>
+                <span x-text="chunk.text.length > 220 ? chunk.text.slice(0, 220) + '…' : chunk.text"></span>
+              </a>
+            </template>
+          </div>
+        </template>
+
+        <div class="text-2xs text-tertiary uppercase mt-4" style="margin-bottom:6px;">Episodes</div>
+        <div class="flex flex-col gap-1" style="max-height:320px;overflow-y:auto;">
           <template x-for="ep in episodeModalList" :key="ep.id">
             <a :href="'/episodes/' + ep.id" class="flex items-center gap-3" style="padding:10px 12px;border-radius:6px;"
                @mouseenter="$el.style.background='var(--bg-elevated)'" @mouseleave="$el.style.background='transparent'">
@@ -161,6 +180,14 @@ function insightsView() {
     comparisonTopics: [], comparisonPodcasts: [], comparisonPodcastIds: [], comparisonLoading: false,
     episodeModal: false, episodeModalList: [], episodeModalTopic: null,
     selectedPodcast: '', podcastList: [],
+
+    formatTime(seconds) {
+      if (seconds == null) return '';
+      const s = Math.floor(seconds);
+      const m = Math.floor(s / 60);
+      const sec = s % 60;
+      return m + ':' + sec.toString().padStart(2, '0');
+    },
 
     get filteredTopics() {
       if (!this.topicFilter) return this.topics;

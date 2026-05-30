@@ -22,18 +22,36 @@ async def list_topics(
     podcast_ids: str | None = Query(None, description="Comma-separated podcast IDs"),
     db: AsyncSession = Depends(get_db),
 ):
-    query = select(
-        TopicCluster.id, TopicCluster.label, TopicCluster.description,
-        TopicCluster.source, TopicCluster.created_at,
-        func.count(EpisodeTopic.episode_id).label("episode_count"),
-    ).outerjoin(EpisodeTopic, EpisodeTopic.topic_id == TopicCluster.id)
-
     if podcast_ids:
-        pid_list = podcast_ids.split(",")
-        query = query.outerjoin(Episode, Episode.id == EpisodeTopic.episode_id)
-        query = query.where(
-            (EpisodeTopic.episode_id.is_(None)) | (Episode.podcast_id.in_(pid_list))
-        ).distinct()
+        pid_list = [pid for pid in podcast_ids.split(",") if pid]
+        # Inner-join: only topics with at least one episode in the requested podcasts.
+        query = (
+            select(
+                TopicCluster.id,
+                TopicCluster.label,
+                TopicCluster.description,
+                TopicCluster.source,
+                TopicCluster.representative_chunks,
+                TopicCluster.created_at,
+                func.count(func.distinct(EpisodeTopic.episode_id)).label("episode_count"),
+            )
+            .join(EpisodeTopic, EpisodeTopic.topic_id == TopicCluster.id)
+            .join(Episode, Episode.id == EpisodeTopic.episode_id)
+            .where(Episode.podcast_id.in_(pid_list))
+        )
+    else:
+        query = (
+            select(
+                TopicCluster.id,
+                TopicCluster.label,
+                TopicCluster.description,
+                TopicCluster.source,
+                TopicCluster.representative_chunks,
+                TopicCluster.created_at,
+                func.count(EpisodeTopic.episode_id).label("episode_count"),
+            )
+            .outerjoin(EpisodeTopic, EpisodeTopic.topic_id == TopicCluster.id)
+        )
 
     query = query.group_by(TopicCluster.id).order_by(func.count(EpisodeTopic.episode_id).desc())
     result = await db.execute(query)
@@ -45,6 +63,7 @@ async def list_topics(
             "label": r.label,
             "description": r.description,
             "source": r.source,
+            "representative_chunks": r.representative_chunks or [],
             "episode_count": r.episode_count,
             "created_at": r.created_at.isoformat() if r.created_at else None,
         }
@@ -156,7 +175,8 @@ async def create_topic(body: dict, db: AsyncSession = Depends(get_db)):
         return {"error": "label is required"}
 
     model_setting = await db.get(Setting, "embedding_model")
-    model = model_setting.value if model_setting else "openai/text-embedding-3-small"
+    from app.services.embedder import DEFAULT_EMBEDDING_MODEL
+    model = model_setting.value if model_setting else DEFAULT_EMBEDDING_MODEL
     api_key = await get_api_key(db)
 
     async with OpenRouterClient(api_key=api_key) as client:
