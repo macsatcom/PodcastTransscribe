@@ -78,14 +78,23 @@
                     x-text="ragLoading ? '...' : 'Ask'"></button>
           </div>
           <div x-show="ragAnswer" class="p-4 rounded-lg" style="background:rgba(0,0,0,0.3);border:1px solid var(--border);">
+            <div x-show="ragLowConfidence" class="text-2xs uppercase font-medium" style="color:#d4a056; margin-bottom:6px;">Low confidence</div>
             <div class="text-sm leading-relaxed whitespace-pre-wrap" x-text="ragAnswer"></div>
             <template x-if="ragSources.length > 0">
               <div class="mt-3 pt-3 border-t" style="border-color:var(--border);">
                 <p class="text-xs font-medium" style="color:var(--text-dim); margin-bottom:6px;">Sources:</p>
-                <template x-for="s in ragSources" :key="s.episode_id">
-                  <a :href="'/episodes/' + s.episode_id" class="block text-xs" style="color:var(--accent); margin-top:4px;"
-                     x-text="s.podcast_title + ' — ' + s.episode_title"></a>
-                </template>
+                <div class="flex flex-col" style="gap:4px;">
+                  <template x-for="(s, i) in ragSources" :key="i">
+                    <a :href="s.start_time != null
+                                ? '/episodes/' + s.episode_id + '?t=' + Math.floor(s.start_time)
+                                : '/episodes/' + s.episode_id"
+                       class="block text-xs"
+                       style="padding:6px 8px;border-radius:4px;background:rgba(255,255,255,0.04);color:var(--text); text-decoration:none;border:1px solid var(--border);">
+                      <span class="font-medium" x-text="s.citation"></span>
+                      <span style="color:var(--text-dim);" x-text="' — ' + (s.snippet.length > 140 ? s.snippet.slice(0, 140) + '…' : s.snippet)"></span>
+                    </a>
+                  </template>
+                </div>
               </div>
             </template>
           </div>
@@ -162,7 +171,7 @@ function portalInsights() {
     bgImage: '{{ portal.background_image or portal.secondary_image or "" }}',
     hasBg: !!({{ portal.background_image|tojson }} || {{ portal.secondary_image|tojson }}),
     topics: [], loading: true,
-    ragQuestion: '', ragAnswer: '', ragSources: [], ragLoading: false,
+    ragQuestion: '', ragAnswer: '', ragSources: [], ragLoading: false, ragLowConfidence: false,
     modal: false, modalEpisodes: [], modalTopic: null,
 
     formatTime(seconds) {
@@ -193,6 +202,7 @@ function portalInsights() {
       this.ragLoading = true;
       this.ragAnswer = '';
       this.ragSources = [];
+      this.ragLowConfidence = false;
       try {
         const r = await fetch('/api/insights/rag', {
           method: 'POST',
@@ -202,6 +212,7 @@ function portalInsights() {
         const data = await r.json();
         this.ragAnswer = data.answer || 'No answer.';
         this.ragSources = data.sources || [];
+        this.ragLowConfidence = !!data.low_confidence;
       } catch(e) { this.ragAnswer = 'Error: ' + e.message; }
       this.ragLoading = false;
     },

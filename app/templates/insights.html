@@ -30,15 +30,24 @@
           <button @click="askQuestion()" :disabled="ragLoading" class="btn btn-primary btn-sm"
                   x-text="ragLoading ? 'Asking...' : 'Ask'"></button>
         </div>
-        <div x-show="ragAnswer" class="p-4 rounded-lg" style="background:var(--bg-elevated);border:1px solid var(--border-subtle);">
+        <div x-show="ragAnswer" class="p-4 rounded-lg" :class="ragLowConfidence ? 'low-confidence' : ''" style="background:var(--bg-elevated);border:1px solid var(--border-subtle);">
+          <div x-show="ragLowConfidence" class="text-2xs uppercase font-medium mb-2" style="color:var(--warning, #d4a056);">Low confidence</div>
           <div class="text-sm leading-relaxed whitespace-pre-wrap" x-text="ragAnswer"></div>
           <template x-if="ragSources.length > 0">
             <div class="mt-3 pt-3 border-t" style="border-color:var(--border-subtle);">
               <p class="text-xs font-medium text-secondary mb-2">Sources:</p>
-              <template x-for="s in ragSources" :key="s.episode_id">
-                <a :href="'/episodes/' + s.episode_id" class="block text-xs text-accent hover:underline mt-1"
-                   x-text="s.podcast_title + ' — ' + s.episode_title"></a>
-              </template>
+              <div class="flex flex-col gap-1">
+                <template x-for="(s, i) in ragSources" :key="i">
+                  <a :href="s.start_time != null
+                              ? '/episodes/' + s.episode_id + '?t=' + Math.floor(s.start_time)
+                              : '/episodes/' + s.episode_id"
+                     class="block text-xs"
+                     style="padding:6px 8px;border-radius:4px;background:var(--bg-surface);color:var(--text-primary);text-decoration:none;border:1px solid var(--border-subtle);">
+                    <span class="font-medium" x-text="s.citation"></span>
+                    <span class="text-tertiary" x-text="' — ' + (s.snippet.length > 140 ? s.snippet.slice(0, 140) + '…' : s.snippet)"></span>
+                  </a>
+                </template>
+              </div>
             </div>
           </template>
         </div>
@@ -176,7 +185,7 @@
 function insightsView() {
   return {
     topics: [], topicFilter: '', showCreateTopic: false, newTopicLabel: '', loading: true, clustering: false,
-    ragQuestion: '', ragAnswer: '', ragSources: [], ragLoading: false,
+    ragQuestion: '', ragAnswer: '', ragSources: [], ragLoading: false, ragLowConfidence: false,
     comparisonTopics: [], comparisonPodcasts: [], comparisonPodcastIds: [], comparisonLoading: false,
     episodeModal: false, episodeModalList: [], episodeModalTopic: null,
     selectedPodcast: '', podcastList: [],
@@ -262,6 +271,7 @@ function insightsView() {
       this.ragLoading = true;
       this.ragAnswer = '';
       this.ragSources = [];
+      this.ragLowConfidence = false;
       try {
         const body = {question: this.ragQuestion};
         if (this.activePodcastId) body.podcast_ids = [this.activePodcastId];
@@ -273,6 +283,7 @@ function insightsView() {
         const data = await r.json();
         this.ragAnswer = data.answer || 'No answer.';
         this.ragSources = data.sources || [];
+        this.ragLowConfidence = !!data.low_confidence;
       } catch(e) { this.ragAnswer = 'Error: ' + e.message; }
       this.ragLoading = false;
     },
