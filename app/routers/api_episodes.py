@@ -85,6 +85,32 @@ async def get_episode(episode_id: UUID, db: AsyncSession = Depends(get_db)):
     }
 
 
+@router.get("/{episode_id}/chunks")
+async def get_episode_chunks(episode_id: UUID, db: AsyncSession = Depends(get_db)):
+    from app.models.transcript import TranscriptChunk
+    result = await db.execute(
+        select(Transcript).where(Transcript.episode_id == episode_id)
+    )
+    transcript = result.scalar_one_or_none()
+    if not transcript:
+        return []
+    chunks_result = await db.execute(
+        select(TranscriptChunk)
+        .where(TranscriptChunk.transcript_id == transcript.id)
+        .order_by(TranscriptChunk.chunk_index)
+    )
+    chunks = chunks_result.scalars().all()
+    return [
+        {
+            "chunk_index": c.chunk_index,
+            "text": c.text,
+            "start_time": c.start_time,
+            "end_time": c.end_time,
+        }
+        for c in chunks
+    ]
+
+
 @router.post("/{episode_id}/reset")
 async def reset_episode(
     episode_id: UUID,
