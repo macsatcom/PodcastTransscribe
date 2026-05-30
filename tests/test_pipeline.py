@@ -26,6 +26,9 @@ async def test_process_episode_full_flow():
         mock_episode = MagicMock()
         mock_episode.status = "new"
         mock_episode.id = uuid4()
+        mock_episode.abs_item_id = None
+        mock_episode.source_type = "rss"
+        mock_episode.audio_url = "https://example.com/episode.mp3"
 
         mock_transcript = MagicMock()
         mock_transcript.id = transcript_id
