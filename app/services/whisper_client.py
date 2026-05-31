@@ -55,6 +55,8 @@ async def transcribe_local(audio_data: bytes, language: str | None = None) -> tu
         params["language"] = language
 
     async with httpx.AsyncClient(timeout=7200) as client:
+        response = await client.post(
+            f"{settings.local_whisper_url}/asr",
             data=params,
             files=files,
         )
