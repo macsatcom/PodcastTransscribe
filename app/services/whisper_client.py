@@ -54,9 +54,7 @@ async def transcribe_local(audio_data: bytes, language: str | None = None) -> tu
     if language:
         params["language"] = language
 
-    async with httpx.AsyncClient(timeout=1800) as client:
-        response = await client.post(
-            f"{settings.local_whisper_url}/asr",
+    async with httpx.AsyncClient(timeout=7200) as client:
             data=params,
             files=files,
         )
@@ -73,7 +71,7 @@ async def transcribe_self_hosted(audio_data: bytes, whisper_url: str, language: 
     files = {"file": ("audio.mp3", audio_data, "audio/mpeg")}
     data = {"response_format": "verbose_json", "temperature": "0.0", "temperature_inc": "0.2", "language": language or "auto"}
 
-    async with httpx.AsyncClient(timeout=1800) as client:
+    async with httpx.AsyncClient(timeout=7200) as client:
         response = await client.post(
             f"{whisper_url.rstrip('/')}{endpoint}",
             data=data,

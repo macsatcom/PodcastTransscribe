@@ -21,7 +21,7 @@ _semaphore = asyncio.Semaphore(settings.max_concurrent_processing)
 
 STAGE_TIMEOUTS = {
     "download": 900,
-    "transcribe": 1800,
+    "transcribe": 7200,  # 2 h — long BTB-style episodes (≥80 min) need time on slow hw
     "summarize": 300,
     "indexing": 600,
 }
