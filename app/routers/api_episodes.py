@@ -17,6 +17,7 @@ async def list_episodes(
     podcast_id: UUID | None = None,
     status: str | None = None,
     media_type: str | None = None,
+    limit: int | None = None,
     db: AsyncSession = Depends(get_db),
 ):
     query = select(Episode)
@@ -30,6 +31,8 @@ async def list_episodes(
     if media_type:
         query = query.where(Episode.media_type == media_type)
     query = query.order_by(Episode.published_at.desc())
+    if limit:
+        query = query.limit(limit)
     result = await db.execute(query)
     episodes = result.scalars().all()
     queued_ids = {str(eid) for eid in episode_queue.get_queued_ids()}

@@ -42,12 +42,15 @@
             <option value="podcast">Podcasts</option>
             <option value="book">Audiobooks</option>
           </select>
-          <select x-model="episodeFilter" class="select">
+          <select x-show="!episodesTooMany" x-model="episodeFilter" class="select">
             <option value="">All Episodes</option>
             <template x-for="e in episodes" :key="e.id">
               <option :value="e.id" x-text="e.title"></option>
             </template>
           </select>
+          <span x-show="episodesTooMany" class="text-xs text-secondary" style="align-self:center;font-style:italic;">
+            Too many episodes to filter — search by keyword instead
+          </span>
         </div>
         <button type="submit" class="btn btn-primary btn-lg">Search</button>
       </div>
@@ -294,7 +297,7 @@ function exploreView() {
 
     // ── Search state ──
     keyword: '', natural: '', podcastFilter: '', episodeFilter: '', mediaTypeFilter: '',
-    podcasts: [], episodes: [], results: [], loading: false, searched: false,
+    podcasts: [], episodes: [], results: [], loading: false, searched: false, episodesTooMany: false,
     searchMeta: { threshold: null, model: null, candidate_count: 0 },
 
     // ── Insights state ──
@@ -350,9 +353,11 @@ function exploreView() {
     },
 
     async loadEpisodes() {
-      if (!this.podcastFilter) { this.episodes = []; return; }
-      const r = await fetch('/api/episodes?podcast_id=' + this.podcastFilter);
-      this.episodes = await r.json();
+      if (!this.podcastFilter) { this.episodes = []; this.episodesTooMany = false; return; }
+      const r = await fetch('/api/episodes?podcast_id=' + this.podcastFilter + '&limit=101');
+      const data = await r.json();
+      if (data.length > 100) { this.episodes = []; this.episodesTooMany = true; }
+      else { this.episodes = data; this.episodesTooMany = false; }
     },
 
     async doSearch() {

@@ -174,6 +174,49 @@ async def get_abs_item(
     db: AsyncSession = Depends(get_db),
     adapter: ABSSourceAdapter = Depends(get_adapter),
 ):
+    # --- Fast path: serve from local DB if we already have this podcast synced ---
+    podcast_query = select(Podcast).where(Podcast.abs_item_id == item_id)
+    podcast = (await db.execute(podcast_query)).scalar_one_or_none()
+
+    if podcast:
+        rows = await db.execute(
+            select(Episode).where(Episode.podcast_id == podcast.id)
+                           .order_by(Episode.published_at.desc())
+        )
+        local_episodes = rows.scalars().all()
+
+        if local_episodes:
+            queued_ids = {str(eid) for eid in episode_queue.get_queued_ids()}
+            episode_list = []
+            for ep in local_episodes:
+                episode_list.append({
+                    "id": ep.abs_episode_id or str(ep.chapter_index or 0),
+                    "title": ep.title or "",
+                    "duration": ep.duration_seconds,
+                    "status": normalize_status(ep.status),
+                    "our_episode_id": str(ep.id),
+                    "model_used": ep.model_used,
+                    "processing_seconds": ep.processing_seconds,
+                    "cost": ep.cost,
+                    "error_message": ep.error_message if ep.status == "error" else None,
+                    "published_at": ep.published_at.isoformat() if ep.published_at else None,
+                    "queued": str(ep.id) in queued_ids,
+                })
+            return {
+                "id": item_id,
+                "our_id": str(podcast.id),
+                "title": podcast.title or "",
+                "author": podcast.author or "",
+                "narrator": "",
+                "description": podcast.description or "",
+                "cover_url": f"/api/abs/items/{item_id}/cover",
+                "media_type": podcast.media_type or "podcast",
+                "duration": None,
+                "auto_process": podcast.auto_process,
+                "episodes": episode_list,
+            }
+
+    # --- Slow path: fetch from ABS (new podcast or no local episodes yet) ---
     try:
         abs_item = await adapter.get_item(item_id, expanded=True)
     except Exception as e:
@@ -183,9 +226,7 @@ async def get_abs_item(
     metadata = media.get("metadata", {})
     media_type = abs_item.get("mediaType", "book")
 
-    podcast_query = select(Podcast).where(Podcast.abs_item_id == item_id)
-    podcast = (await db.execute(podcast_query)).scalar_one_or_none()
-
+    # podcast may already be set from the fast-path check above (was None, so we're here)
     if not podcast:
         title = metadata.get("title", item_id)
         author = metadata.get("author") or metadata.get("authorName") or metadata.get("narratorName") or ""
