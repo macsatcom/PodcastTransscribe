@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
-<div x-data="podcastDetail()" x-init="loadPodcast()">
+<div x-data="podcastDetail()" x-init="init()">
   <a href="/" class="text-sm font-medium text-secondary hover:text-primary mb-4 inline-block" style="display:flex;align-items:center;gap:4px;">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
     Back
@@ -103,24 +103,34 @@
        <label class="flex items-center gap-2 text-xs font-medium text-secondary cursor-pointer">
          <input type="checkbox" :checked="allFilteredSelected" @change="toggleSelectAll()" class="checkbox"> Select all
        </label>
-      <button @click="processSelected()" x-show="selectedIds.length > 0"
-              class="btn btn-primary btn-sm" x-text="'Process Selected (' + selectedIds.length + ')'">
+      <button @click="processSelected()" x-show="selectedCount > 0"
+              class="btn btn-primary btn-sm" x-text="'Process Selected (' + selectedCount + ')'">
       </button>
       <button @click="processAll()" x-text="processingAll ? 'Processing...' : 'Process All Pending'"
               class="btn btn-secondary btn-sm" :disabled="processingAll">
       </button>
-      <span class="text-xs text-tertiary" x-text="filteredEpisodes.length + ' of ' + episodes.length"></span>
+      <button x-show="!allEpisodesLoaded && !loadingStopped" @click="stopLoading()" class="btn btn-ghost btn-sm">
+        Stop loading older episodes
+      </button>
+      <button x-show="loadingStopped && !allEpisodesLoaded" @click="resumeLoading()" class="btn btn-ghost btn-sm">
+        Resume loading older episodes
+      </button>
+      <span class="text-xs text-tertiary" style="display:flex;align-items:center;gap:6px;">
+        <span x-text="filteredEpisodes.length + ' of ' + episodes.length"></span>
+        <span x-show="!allEpisodesLoaded && !loadingStopped" class="spinner" style="width:10px;height:10px;"></span>
+      </span>
       <span x-show="processAllResult" x-text="processAllResult" class="text-xs text-accent"></span>
     </div>
   </div>
 
   <div class="flex flex-col gap-1">
     <div x-show="loadingEpisodes" class="flex items-center gap-3 text-sm text-secondary" style="padding:24px 0;">
-      <div class="spinner"></div> Loading episodes...
+      <div class="spinner"></div>
+      <span x-text="'Loading episodes... ' + episodes.length + ' loaded'"></span>
     </div>
     <template x-for="ep in filteredEpisodes" :key="ep.id">
       <div class="flex items-start gap-3" style="padding:12px 16px;background:var(--bg-surface);border-radius:6px;border:1px solid var(--border-subtle);transition:border-color 0.15s;">
-        <input type="checkbox" :checked="selectedIds.includes(ep.id)" @change="toggleSelect(ep.id)"
+        <input type="checkbox" :checked="selectedById[ep.id] === true" @change="toggleSelect(ep.id)"
                class="checkbox flex-shrink-0 mt-1">
         <a :href="'/episodes/' + ep.id" class="min-w-0 flex-1">
           <div style="font-size:0.875rem;font-weight:600;line-height:1.5;">
@@ -164,6 +174,7 @@
     <div x-show="!loadingEpisodes && filteredEpisodes.length === 0" class="empty-state">
       <p class="font-medium text-sm">No episodes match your filter</p>
     </div>
+    <div x-show="episodeLoadError" class="text-sm text-red mt-4" x-text="episodeLoadError"></div>
   </div>
 </div>
 
@@ -172,15 +183,41 @@ function podcastDetail() {
   return {
     podcastId: '{{ podcast_id }}',
     loading: true, loadingEpisodes: true,
-    podcast: {}, episodes: [],
+    podcast: {}, episodes: [], filteredEpisodes: [],
+    allEpisodesLoaded: false, episodeLoadError: '',
+    loadingStopped: false,
     polling: false, pollResult: '',
     processingAll: false, processAllResult: '',
     filterText: '', statusFilter: '',
-    selectedIds: [],
+    selectedById: {},
     showEdit: false, editTitle: '', editAuthor: '', editDescription: '', editCoverUrl: '', editLanguage: '',
     saving: false, deleteTarget: false, deleting: false,
+    _filterDebounceTimer: null,
+    _stopLoadingRequested: false,
+    _loadingInFlight: false,
+    _nextOffset: 0,
+    _loadPageSize: 150,
 
-    get filteredEpisodes() {
+    get selectedCount() {
+      return Object.keys(this.selectedById).length;
+    },
+
+    get allFilteredSelected() {
+      return this.filteredEpisodes.length > 0
+        && this.filteredEpisodes.every(e => this.selectedById[e.id] === true);
+    },
+
+    async init() {
+      this.$watch('episodes', () => this.recomputeFilteredEpisodes());
+      this.$watch('statusFilter', () => this.recomputeFilteredEpisodes());
+      this.$watch('filterText', () => {
+        clearTimeout(this._filterDebounceTimer);
+        this._filterDebounceTimer = setTimeout(() => this.recomputeFilteredEpisodes(), 300);
+      });
+      await Promise.all([this.loadPodcast(), this.loadEpisodes()]);
+    },
+
+    recomputeFilteredEpisodes() {
       let list = this.episodes;
       if (this.filterText) {
         const q = this.filterText.toLowerCase();
@@ -192,22 +229,24 @@ function podcastDetail() {
           return e.status === this.statusFilter;
         });
       }
-      return list;
-    },    get allFilteredSelected() {
-      return this.filteredEpisodes.length > 0
-        && this.filteredEpisodes.every(e => this.selectedIds.includes(e.id));
+      this.filteredEpisodes = list;
     },
 
-
-    toggleSelect(id) { const idx = this.selectedIds.indexOf(id); if (idx > -1) this.selectedIds.splice(idx, 1); else this.selectedIds.push(id); },
+    toggleSelect(id) {
+      const next = {...this.selectedById};
+      if (next[id]) delete next[id];
+      else next[id] = true;
+      this.selectedById = next;
+    },
 
     toggleSelectAll() {
+      const next = {...this.selectedById};
       if (this.allFilteredSelected) {
-        const filteredIds = new Set(this.filteredEpisodes.map(e => e.id));
-        this.selectedIds = this.selectedIds.filter(id => !filteredIds.has(id));
+        this.filteredEpisodes.forEach(e => delete next[e.id]);
       } else {
-        this.selectedIds = this.filteredEpisodes.map(e => e.id);
+        this.filteredEpisodes.forEach(e => { next[e.id] = true; });
       }
+      this.selectedById = next;
     },
 
     async loadPodcast() {
@@ -216,14 +255,68 @@ function podcastDetail() {
       this.editTitle = this.podcast.title || ''; this.editAuthor = this.podcast.author || '';
       this.editDescription = this.podcast.description || ''; this.editCoverUrl = this.podcast.cover_url || '';
       this.editLanguage = this.podcast.language || '';
-      this.loading = false; await this.loadEpisodes();
+      this.loading = false;
     },
 
-    async loadEpisodes() {
+    async loadEpisodes(reset = true) {
+      if (this._loadingInFlight) return;
+      this._loadingInFlight = true;
       this.loadingEpisodes = true;
-      const r = await fetch('/api/episodes?podcast_id=' + this.podcastId);
-      this.episodes = (await r.json()).map(e => ({...e, processing: false}));
-      this.loadingEpisodes = false;
+      if (reset) {
+        this.allEpisodesLoaded = false;
+        this.loadingStopped = false;
+        this.episodeLoadError = '';
+        this._stopLoadingRequested = false;
+        this._nextOffset = 0;
+      }
+      const pageSize = this._loadPageSize;
+      let offset = this._nextOffset;
+      let firstPageLoaded = false;
+
+      try {
+        while (true) {
+          if (this._stopLoadingRequested) {
+            this.loadingStopped = true;
+            this._stopLoadingRequested = false;
+            break;
+          }
+          const r = await fetch('/api/episodes?podcast_id=' + this.podcastId + '&limit=' + pageSize + '&offset=' + offset);
+          if (!r.ok) throw new Error('Failed to load episodes');
+          const page = (await r.json()).map(e => ({...e, processing: false}));
+          this.episodes = this.episodes.concat(page);
+
+          if (!firstPageLoaded) {
+            this.loadingEpisodes = false;
+            firstPageLoaded = true;
+          }
+
+          if (page.length < pageSize) {
+            this.allEpisodesLoaded = true;
+            this.loadingStopped = false;
+            this._nextOffset = offset + page.length;
+            break;
+          }
+          offset += pageSize;
+          this._nextOffset = offset;
+        }
+      } catch (e) {
+        this.episodeLoadError = 'Failed to load episodes. Please refresh.';
+        this.allEpisodesLoaded = true;
+      } finally {
+        this.loadingEpisodes = false;
+        this._loadingInFlight = false;
+      }
+    },
+
+    stopLoading() {
+      this._stopLoadingRequested = true;
+    },
+
+    async resumeLoading() {
+      if (this.allEpisodesLoaded) return;
+      this.loadingStopped = false;
+      this._stopLoadingRequested = false;
+      await this.loadEpisodes(false);
     },
 
     async toggleAutoProcess() {
@@ -238,7 +331,13 @@ function podcastDetail() {
     async pollNow() {
       this.polling = true; this.pollResult = '';
       const r = await fetch('/api/podcasts/' + this.podcastId + '/poll', { method: 'POST' });
-      if (r.ok) { this.pollResult = 'Polled!'; await this.loadEpisodes(); }
+      if (r.ok) {
+        this.pollResult = 'Polled!';
+        this.episodes = [];
+        this.selectedById = {};
+        this._nextOffset = 0;
+        await this.loadEpisodes();
+      }
       else { this.pollResult = 'Poll failed.'; }
       this.polling = false; setTimeout(() => this.pollResult = '', 3000);
     },
@@ -285,11 +384,14 @@ function podcastDetail() {
     },
 
     async processSelected() {
-      const ids = [...this.selectedIds]; this.selectedIds = [];
+      const ids = Object.keys(this.selectedById);
+      this.selectedById = {};
       try {
         const r = await fetch('/api/episodes/process-batch', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ids}) });
         const data = await r.json();
         this.processAllResult = 'Enqueued ' + (data.count || ids.length) + ' episode(s).';
+        this.episodes = [];
+        this._nextOffset = 0;
         await this.loadEpisodes();
       } catch (e) { this.processAllResult = 'Batch processing failed.'; }
       setTimeout(() => this.processAllResult = '', 4000);
@@ -301,6 +403,9 @@ function podcastDetail() {
         const r = await fetch('/api/episodes/process-all-pending', { method: 'POST' });
         const data = await r.json();
         this.processAllResult = 'Enqueued ' + (data.count || 0) + ' episode(s).';
+        this.episodes = [];
+        this.selectedById = {};
+        this._nextOffset = 0;
         await this.loadEpisodes();
       } catch (e) { this.processAllResult = 'Batch processing failed.'; }
       this.processingAll = false; setTimeout(() => this.processAllResult = '', 6000);

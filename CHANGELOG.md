@@ -4,6 +4,33 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.19.2] - 2026-06-13
+
+### Added
+
+- **Podcast detail progressive loading controls** — large podcast episode lists
+  now load in background pages with explicit **Stop loading older episodes**
+  and **Resume loading older episodes** controls so the UI remains responsive
+  even for very large feeds.
+- **Episode list API pagination offset support** — `GET /api/episodes` now
+  supports `offset` in addition to `limit`, enabling incremental loading from
+  the UI.
+- **Episodes query performance index** — new migration adds
+  `ix_episodes_podcast_published` on `(podcast_id, published_at DESC NULLS
+  LAST)` to speed podcast-scoped ordered retrieval.
+
+### Changed
+
+- **Safer list API limits** — `GET /api/episodes` now enforces bounded query
+  parameters (`limit` default 200, max 500; `offset` min 0) to prevent
+  accidental unbounded responses.
+
+### Fixed
+
+- **Large podcast detail pages freezing** — replaced single giant episode fetch
+  with paged background loading and debounced filtering, reducing initial render
+  cost and keeping filtering usable for large archives.
+
 ## [0.19.0] - 2026-05-30
 
 ### Added
