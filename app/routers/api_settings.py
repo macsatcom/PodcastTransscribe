@@ -1,7 +1,9 @@
 import httpx
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app import auth
 from app.adapters.abs import ABSSourceAdapter
 from app.database import get_db
 from app.models.setting import Setting
@@ -19,6 +21,14 @@ VALID_KEYS = {
     "abs_url",
     "abs_api_key",
 }
+
+
+class AuthUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool | None = None
+    username: str | None = None
+    password: str | None = None
 
 
 @router.get("")
@@ -51,6 +61,65 @@ async def update_settings(
         result = await reembed.trigger_reembed(embedding_model_changed_to)
         response["reembed"] = result
     return response
+
+
+@router.get("/auth")
+async def get_auth_settings(db: AsyncSession = Depends(get_db)):
+    enabled_row = await db.get(Setting, auth.AUTH_MAIN_ENABLED)
+    user_row = await db.get(Setting, auth.AUTH_MAIN_USERNAME)
+    return {
+        "enabled": bool(enabled_row and enabled_row.value == "1"),
+        "username": (user_row.value if user_row else "") or "",
+    }
+
+
+async def _set_setting(db: AsyncSession, key: str, value: str) -> None:
+    row = await db.get(Setting, key)
+    if row:
+        row.value = value
+    else:
+        db.add(Setting(key=key, value=value))
+
+
+@router.put("/auth")
+async def update_auth_settings(body: AuthUpdate, db: AsyncSession = Depends(get_db)):
+    enabled_row = await db.get(Setting, auth.AUTH_MAIN_ENABLED)
+
+    if body.username is not None:
+        await _set_setting(db, auth.AUTH_MAIN_USERNAME, body.username.strip())
+
+    if body.password is not None:
+        if body.password.strip():
+            await _set_setting(
+                db,
+                auth.AUTH_MAIN_PASSWORD_HASH,
+                auth.hash_password(body.password),
+            )
+
+    user_row = await db.get(Setting, auth.AUTH_MAIN_USERNAME)
+    hash_row = await db.get(Setting, auth.AUTH_MAIN_PASSWORD_HASH)
+    has_username = bool(user_row and user_row.value and user_row.value.strip())
+    has_password = bool(hash_row and hash_row.value)
+
+    resulting_enabled = (
+        body.enabled
+        if body.enabled is not None
+        else bool(enabled_row and enabled_row.value == "1")
+    )
+
+    if resulting_enabled and not (has_username and has_password):
+        await db.rollback()
+        raise HTTPException(
+            status_code=400,
+            detail="Set a username and password before enabling login.",
+        )
+
+    if body.enabled is not None:
+        await _set_setting(db, auth.AUTH_MAIN_ENABLED, "1" if body.enabled else "0")
+
+    await db.commit()
+    auth.invalidate_main_auth_cache()
+    return {"status": "saved"}
 
 
 @router.get("/reembed/status")

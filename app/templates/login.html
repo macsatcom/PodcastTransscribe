@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ title }} - Sign in</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #121212;
+      color: #fff;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .card {
+      background: #181818;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 32px;
+      width: 100%;
+      max-width: 360px;
+    }
+    h1 { font-size: 1.25rem; font-weight: 700; margin-bottom: 4px; }
+    .sub { color: #b3b3b3; font-size: 0.85rem; margin-bottom: 20px; }
+    label { display: block; font-size: 0.75rem; color: #b3b3b3; margin: 12px 0 4px; }
+    input {
+      width: 100%;
+      background: #1f1f1f;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 6px;
+      padding: 10px 12px;
+      color: #fff;
+      font-size: 0.9rem;
+    }
+    input:focus { outline: none; border-color: #1ed760; }
+    button {
+      width: 100%;
+      margin-top: 20px;
+      background: #1ed760;
+      color: #000;
+      border: none;
+      border-radius: 500px;
+      padding: 11px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+    }
+    button:hover { background: #1fdf64; }
+    .err { color: #f3727f; font-size: 0.8rem; margin-top: 12px; min-height: 1em; }
+  </style>
+</head>
+<body>
+  <form class="card" method="post" action="/login">
+    <h1>{{ title }}</h1>
+    <div class="sub">Sign in to continue</div>
+    <input type="hidden" name="next" value="{{ next_path }}">
+    <label for="username">Username</label>
+    <input id="username" name="username" autocomplete="username" autofocus>
+    <label for="password">Password</label>
+    <input id="password" name="password" type="password" autocomplete="current-password">
+    <button type="submit">Sign in</button>
+    {% if error %}<div class="err">{{ error }}</div>{% endif %}
+  </form>
+</body>
+</html>

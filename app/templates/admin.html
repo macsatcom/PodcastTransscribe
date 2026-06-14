@@ -5,6 +5,29 @@
 
   <div class="flex flex-col gap-6" style="max-width:560px;">
 
+    <!-- Authentication (main site) -->
+    <div class="card" style="padding:20px;">
+      <h2 class="section-title mb-3">Authentication</h2>
+      <div class="flex flex-col gap-3">
+        <label class="flex items-center gap-3 text-sm cursor-pointer">
+          <input type="checkbox" x-model="auth.enabled" class="checkbox">
+          <span class="font-medium">Require login for this admin site</span>
+        </label>
+        <div>
+          <label class="text-xs font-medium text-secondary" style="display:block;margin-bottom:4px;">Username</label>
+          <input type="text" x-model="auth.username" class="input" placeholder="admin">
+        </div>
+        <div>
+          <label class="text-xs font-medium text-secondary" style="display:block;margin-bottom:4px;">Password</label>
+          <input type="password" x-model="auth.password" class="input" :placeholder="auth.hasPassword ? '•••• (unchanged)' : 'Set a password'">
+        </div>
+        <div class="flex items-center gap-3">
+          <button @click="saveAuth()" :disabled="auth.saving" class="btn btn-primary" x-text="auth.saving ? 'Saving...' : 'Save'"></button>
+          <span x-text="auth.status" class="text-sm font-medium" :class="auth.ok ? 'text-accent' : 'text-red'"></span>
+        </div>
+      </div>
+    </div>
+
     <!-- Audiobookshelf -->
     <div class="card" style="padding:20px;">
       <h2 class="section-title mb-3">Audiobookshelf</h2>
@@ -157,6 +180,21 @@
             <label class="text-xs font-medium text-secondary" style="display:block;margin-bottom:4px;">Secondary Image URL</label>
             <input x-model="form.secondary_image" placeholder="https://... or leave empty" class="input" style="border-radius:6px;">
           </div>
+          <label class="flex items-center gap-3 text-sm cursor-pointer" style="padding:4px 0;">
+            <input type="checkbox" x-model="form.auth_enabled" class="checkbox">
+            <span class="font-medium">Require login for this portal</span>
+          </label>
+          <div x-show="form.auth_enabled" class="flex flex-col gap-3">
+            <div>
+              <label class="text-xs font-medium text-secondary" style="display:block;margin-bottom:4px;">Portal username</label>
+              <input x-model="form.auth_username" class="input" style="border-radius:6px;" placeholder="guest">
+            </div>
+            <div>
+              <label class="text-xs font-medium text-secondary" style="display:block;margin-bottom:4px;">Portal password</label>
+              <input x-model="form.auth_password" type="password" class="input" style="border-radius:6px;"
+                     :placeholder="editing ? '•••• (unchanged)' : 'Set a password'">
+            </div>
+          </div>
           <div>
             <label class="text-xs font-medium text-secondary" style="display:block;margin-bottom:4px;">Podcasts</label>
             <div class="flex flex-col gap-1" style="max-height:160px;overflow-y:auto;padding:8px;background:var(--bg-surface);border-radius:6px;border:1px solid var(--border-subtle);">
@@ -191,6 +229,7 @@
             </div>
             <div class="flex items-center gap-2">
               <span class="badge" :class="p.running ? 'badge-green' : 'badge-gray'" x-text="p.running ? 'Running' : 'Stopped'"></span>
+              <span x-show="p.auth_enabled" class="badge badge-yellow" title="Login required">🔒 Auth</span>
               <button @click="toggleBoot(p)" class="btn btn-ghost btn-sm" style="font-size:0.75rem;padding:2px 8px;" x-text="p.enabled ? 'Boot: on' : 'Boot: off'"
                       :class="p.enabled ? 'text-accent' : 'text-secondary'"></button>
               <button @click="editPortal(p)" class="btn btn-ghost btn-sm text-accent">Edit</button>
@@ -226,7 +265,7 @@
 function portalManager() {
   return {
     showForm: false, editing: null, portals: [], podcasts: [],
-    form: { title: '', port: 9001, description: '', podcast_ids: [], background_image: '', secondary_image: '', enabled: true },
+    form: { title: '', port: 9001, description: '', podcast_ids: [], background_image: '', secondary_image: '', enabled: true, auth_enabled: false, auth_username: '', auth_password: '' },
 
     async loadPortals() {
       const [pr, pdr] = await Promise.all([fetch('/api/portals'), fetch('/api/podcasts')]);
@@ -248,6 +287,9 @@ function portalManager() {
         background_image: p.background_image || '',
         secondary_image: p.secondary_image || '',
         enabled: p.enabled || false,
+        auth_enabled: p.auth_enabled || false,
+        auth_username: p.auth_username || '',
+        auth_password: '',
       };
       this.showForm = true;
     },
@@ -260,7 +302,7 @@ function portalManager() {
           await this._uploadImages(data.id);
         }
       }
-      this.showForm = false; this.form = { title: '', port: 9001, description: '', podcast_ids: [], background_image: '', secondary_image: '', enabled: true };
+      this.showForm = false; this.form = { title: '', port: 9001, description: '', podcast_ids: [], background_image: '', secondary_image: '', enabled: true, auth_enabled: false, auth_username: '', auth_password: '' };
       await this.loadPortals();
     },
 
@@ -270,7 +312,7 @@ function portalManager() {
         await this._uploadImages(this.editing);
       }
       this.showForm = false; this.editing = null;
-      this.form = { title: '', port: 9001, description: '', podcast_ids: [], background_image: '', secondary_image: '', enabled: true };
+      this.form = { title: '', port: 9001, description: '', podcast_ids: [], background_image: '', secondary_image: '', enabled: true, auth_enabled: false, auth_username: '', auth_password: '' };
       await this.loadPortals();
     },
 
@@ -304,6 +346,7 @@ function adminView() {
     saveStatus: '', modelSaveStatus: '', saving: false,
     models: { transcription: [], chat: [], embedding: [] }, modelsLoaded: false, modelsLoading: false, loadError: '',
     semanticThreshold: 0.40,
+    auth: { enabled: false, username: '', password: '', hasPassword: false, saving: false, status: '', ok: false },
     _initialEmbeddingModel: '',
     _initialThreshold: 0.40,
     reembed: { status: 'idle', progress: '0/0', target_model: '' },
@@ -332,7 +375,37 @@ function adminView() {
       if (!isNaN(threshold)) this.semanticThreshold = threshold;
       this._initialThreshold = this.semanticThreshold;
 
+      try {
+        const ar = await fetch('/api/settings/auth');
+        if (ar.ok) {
+          const adata = await ar.json();
+          this.auth.enabled = !!adata.enabled;
+          this.auth.username = adata.username || '';
+          this.auth.hasPassword = !!adata.username;
+        }
+      } catch (e) { /* ignore */ }
+
       await this.refreshReembedStatus();
+    },
+
+    async saveAuth() {
+      this.auth.saving = true; this.auth.status = ''; this.auth.ok = false;
+      const body = { enabled: this.auth.enabled, username: this.auth.username };
+      if (this.auth.password) body.password = this.auth.password;
+      const r = await fetch('/api/settings/auth', {
+        method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body),
+      });
+      if (r.ok) {
+        this.auth.ok = true; this.auth.status = 'Saved!';
+        this.auth.password = '';
+        this.auth.hasPassword = this.auth.hasPassword || !!this.auth.username;
+        setTimeout(() => this.auth.status = '', 2000);
+      } else {
+        let detail = 'Error saving';
+        try { detail = (await r.json()).detail || detail; } catch (e) {}
+        this.auth.status = detail;
+      }
+      this.auth.saving = false;
     },
 
     async saveAndTestAbs() {

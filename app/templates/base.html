@@ -632,6 +632,11 @@
     <a href="/queue" class="nav-link" id="nav-queue">Queue</a>
     <a href="/search" class="nav-link" id="nav-search">Search &amp; Insights</a>
     <a href="/admin" class="nav-link" id="nav-admin">Admin</a>
+    {% if main_auth_enabled %}
+    <form method="post" action="/logout" style="margin-left:auto;">
+      <button type="submit" class="nav-link" style="background:none;border:none;cursor:pointer;">Log out</button>
+    </form>
+    {% endif %}
   </nav>
   <main class="main-content">
     {% block content %}{% endblock %}

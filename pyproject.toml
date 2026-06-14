@@ -16,6 +16,8 @@ dependencies = [
     "pgvector",
     "pydantic-settings",
     "scikit-learn>=1.3",
+    "passlib[bcrypt]",
+    "itsdangerous",
 ]
 
 [project.optional-dependencies]

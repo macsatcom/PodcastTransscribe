@@ -1,12 +1,15 @@
 import logging
 import os
 from contextlib import asynccontextmanager
+from urllib.parse import urlencode
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import func, select, text, update
 
+from app import auth
 from app.config import settings
 from app.database import Base, async_session, engine
 from app.logging_config import setup_logging
@@ -25,6 +28,7 @@ from app.routers import (
     api_queue,
     api_search,
     api_settings,
+    auth_ui,
     health,
     ui,
 )
@@ -197,6 +201,34 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Podcast Transcription and Search", lifespan=lifespan)
+
+
+@app.middleware("http")
+async def main_auth_guard(request: Request, call_next):
+    path = request.url.path
+    is_static_public = path == "/static" or path.startswith("/static/")
+    if path in auth.PUBLIC_PATHS or is_static_public:
+        return await call_next(request)
+
+    async with async_session() as session:
+        state = await auth.load_main_auth_state(session)
+
+    if not state.enabled:
+        return await call_next(request)
+
+    token = request.cookies.get(auth.SESSION_COOKIE)
+    payload = auth.verify_token(state.secret, token)
+    if payload and payload.get("scope") == "main":
+        return await call_next(request)
+
+    if path.startswith("/api/"):
+        return JSONResponse({"detail": "authentication required"}, status_code=401)
+    next_target = path
+    if request.url.query:
+        next_target = f"{next_target}?{request.url.query}"
+    return RedirectResponse(f"/login?{urlencode({'next': next_target})}", status_code=303)
+
+
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 app.include_router(api_podcasts.router)
@@ -209,3 +241,4 @@ app.include_router(api_portals.router)
 app.include_router(api_abs.router)
 app.include_router(api_insights.router)
 app.include_router(health.router)
+app.include_router(auth_ui.router)
