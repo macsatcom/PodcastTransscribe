@@ -1,8 +1,8 @@
 """initial baseline (legacy create_all schema)
 
-This migration is intentionally a no-op. It exists so that databases produced
-by the pre-Alembic ``Base.metadata.create_all()`` lifespan hook can be stamped
-to a known revision and then participate in normal Alembic upgrades.
+This migration creates the baseline tables from SQLAlchemy metadata for fresh
+databases. It also remains compatible with legacy databases that were created
+via the pre-Alembic ``Base.metadata.create_all()`` path and then stamped.
 
 For an existing deployment, run once:
     alembic stamp 0001_initial
@@ -17,6 +17,10 @@ Create Date: 2026-05-29
 
 from __future__ import annotations
 
+from alembic import op
+
+from app.database import Base
+
 # revision identifiers, used by Alembic.
 revision = "0001_initial"
 down_revision = None
@@ -25,8 +29,14 @@ depends_on = None
 
 
 def upgrade() -> None:
-    """No-op: represents the legacy create_all schema."""
-    pass
+    """Create the baseline schema for fresh databases.
+
+    This preserves compatibility with legacy deployments that were stamped to
+    ``0001_initial`` after ``create_all`` while allowing a clean
+    ``alembic upgrade head`` to work on an empty database.
+    """
+    bind = op.get_bind()
+    Base.metadata.create_all(bind=bind)
 
 
 def downgrade() -> None:
