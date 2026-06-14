@@ -1,7 +1,7 @@
 """Real-DB test for GET /api/episodes pagination (replaces the AST stand-in)."""
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -23,7 +23,7 @@ async def test_episode_list_pagination_orders_and_offsets(client, db_session):
                 guid=f"ep-{i}",
                 title=f"Episode {i}",
                 audio_url=f"https://example.com/{i}.mp3",
-                published_at=datetime(2024, 1, day, tzinfo=timezone.utc),
+                published_at=datetime(2024, 1, day, tzinfo=UTC),
                 status="new",
             )
         )
@@ -48,7 +48,7 @@ async def test_episode_list_limit_caps_results(client, db_session):
                 guid=f"cap-{i}",
                 title=f"Cap {i}",
                 audio_url=f"https://example.com/cap-{i}.mp3",
-                published_at=datetime(2024, 2, i + 1, tzinfo=timezone.utc),
+                published_at=datetime(2024, 2, i + 1, tzinfo=UTC),
                 status="new",
             )
         )

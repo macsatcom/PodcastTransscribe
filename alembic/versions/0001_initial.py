@@ -18,7 +18,6 @@ Create Date: 2026-05-29
 from __future__ import annotations
 
 from alembic import op
-
 from app.database import Base
 
 # revision identifiers, used by Alembic.

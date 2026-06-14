@@ -5,7 +5,7 @@ only the OpenRouter embed() HTTP boundary is mocked.
 """
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -29,7 +29,7 @@ async def _seed_ready_episode(db_session, *, text_body: str, embedding=None):
         guid=f"seed-{uuid.uuid4()}",
         title="Seed Episode",
         audio_url="https://example.com/seed.mp3",
-        published_at=datetime(2024, 3, 1, tzinfo=timezone.utc),
+        published_at=datetime(2024, 3, 1, tzinfo=UTC),
         status="ready",
         media_type="podcast",
     )
