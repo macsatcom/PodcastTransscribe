@@ -126,6 +126,24 @@ Set `ASR_MODEL` environment variable to change model size.
 | `OPENROUTER_API_KEY` | Yes | — | OpenRouter API key |
 | `DATABASE_URL` | No | `postgresql+asyncpg://podcast:podcast@db/podcast_transcription_search` | Database connection |
 
+## Optional Authentication
+
+Authentication is disabled by default. You can enable it from the Admin UI with one username/password for the main app and one username/password per portal.
+
+- Main app auth: Admin -> Authentication
+- Portal auth: Admin -> Public Portals -> Edit portal -> Authentication
+
+Behavior when enabled:
+
+- Browser requests are redirected to `/login`
+- API requests return `401` JSON responses
+- Sessions are cookie-based and scoped (`main` vs specific portal)
+
+Notes:
+
+- Leave password blank in update forms to keep the existing password
+- There is no public signup flow; credentials are admin-managed only
+
 ## License
 
 MIT
