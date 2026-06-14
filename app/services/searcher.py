@@ -103,7 +103,10 @@ async def search_fts(
 ) -> list[dict]:
     lang = _safe_lang(language)
 
-    conditions = ["to_tsvector(:lang::regconfig, ft.full_text) @@ phraseto_tsquery(:lang::regconfig, :query)"]
+    conditions = [
+        "to_tsvector(CAST(:lang AS regconfig), ft.full_text) "
+        "@@ phraseto_tsquery(CAST(:lang AS regconfig), :query)"
+    ]
     params: dict = {"lang": lang, "query": query, "limit": limit}
 
     if podcast_ids:
@@ -123,15 +126,15 @@ async def search_fts(
     sql = text(f"""
         SELECT e.id AS episode_id, e.title AS episode_title, e.published_at,
                p.title AS podcast_title, p.cover_url, e.media_type,
-               ts_headline(:lang::regconfig, ft.full_text,
-                           phraseto_tsquery(:lang::regconfig, :query),
+               ts_headline(CAST(:lang AS regconfig), ft.full_text,
+                           phraseto_tsquery(CAST(:lang AS regconfig), :query),
                            'StartSel=<mark>, StopSel=</mark>, MaxWords=60, MinWords=20') AS snippet
         FROM transcripts ft
         JOIN episodes e ON e.id = ft.episode_id
         JOIN podcasts p ON p.id = e.podcast_id
         WHERE {where_clause}
-        ORDER BY ts_rank(to_tsvector(:lang::regconfig, ft.full_text),
-                         phraseto_tsquery(:lang::regconfig, :query)) DESC
+        ORDER BY ts_rank(to_tsvector(CAST(:lang AS regconfig), ft.full_text),
+                         phraseto_tsquery(CAST(:lang AS regconfig), :query)) DESC
         LIMIT :limit
     """)
 
