@@ -1,4 +1,0 @@
-/home/ksn/git-ksn/podcast-transcription-search/docs/superpowers/specs/2026-05-21-public-search-portals-design.md
-/home/ksn/git-ksn/podcast-transcription-search/docs/superpowers/specs/2026-05-23-queue-page-design.md
-/home/ksn/git-ksn/podcast-transcription-search/docs/superpowers/specs/2026-05-24-abs-integration-design.md
-/home/ksn/git-ksn/podcast-transcription-search/docs/superpowers/specs/2026-05-25-insights-and-rag-design.md
