@@ -2,27 +2,37 @@ import logging
 import os
 from contextlib import asynccontextmanager
 
-logging.basicConfig(level=logging.INFO, format="%(levelname)s [%(name)s] %(message)s")
-logger = logging.getLogger(__name__)
-
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from sqlalchemy import select, text, update, func
+from sqlalchemy import func, select, text, update
 
-from app.database import engine, Base, async_session
+from app.config import settings
+from app.database import Base, async_session, engine
 from app.models.episode import Episode
 from app.models.podcast import Podcast
 from app.models.portal import Portal
-from app.models.topic import TopicCluster, EpisodeTopic
 from app.models.setting import Setting
 from app.models.source_config import SourceConfig
-from app.services.rss_poller import poll_all_feeds
+from app.portal_manager import portal_manager
+from app.routers import (
+    api_abs,
+    api_episodes,
+    api_insights,
+    api_podcasts,
+    api_portals,
+    api_queue,
+    api_search,
+    api_settings,
+    ui,
+)
 from app.services.abs_poller import poll_abs_libraries
 from app.services.clustering import run_clustering
 from app.services.queue_manager import episode_queue
-from app.portal_manager import portal_manager
-from app.config import settings
+from app.services.rss_poller import poll_all_feeds
+
+logging.basicConfig(level=logging.INFO, format="%(levelname)s [%(name)s] %(message)s")
+logger = logging.getLogger(__name__)
 
 scheduler = AsyncIOScheduler()
 
@@ -49,9 +59,7 @@ async def _deduplicate_abs_podcasts():
         logger.info("Dedup: found %d abs_item_id values with duplicate podcasts", len(duplicate_ids))
 
         for abs_id in duplicate_ids:
-            pods_result = await session.execute(
-                select(Podcast).where(Podcast.abs_item_id == abs_id)
-            )
+            pods_result = await session.execute(select(Podcast).where(Podcast.abs_item_id == abs_id))
             podcasts = list(pods_result.scalars().all())
             if len(podcasts) < 2:
                 continue
@@ -59,14 +67,10 @@ async def _deduplicate_abs_podcasts():
             scored = []
             for p in podcasts:
                 ready_r = await session.execute(
-                    select(func.count(Episode.id)).where(
-                        Episode.podcast_id == p.id, Episode.status == "ready"
-                    )
+                    select(func.count(Episode.id)).where(Episode.podcast_id == p.id, Episode.status == "ready")
                 )
                 ready_count = ready_r.scalar_one() or 0
-                total_r = await session.execute(
-                    select(func.count(Episode.id)).where(Episode.podcast_id == p.id)
-                )
+                total_r = await session.execute(select(func.count(Episode.id)).where(Episode.podcast_id == p.id))
                 total_count = total_r.scalar_one() or 0
                 scored.append((p, ready_count, total_count))
 
@@ -76,18 +80,17 @@ async def _deduplicate_abs_podcasts():
 
             logger.info(
                 "Dedup: keeping %s (ready=%d total=%d), removing %d duplicates",
-                keep.title, scored[0][1], scored[0][2], len(losers),
+                keep.title,
+                scored[0][1],
+                scored[0][2],
+                len(losers),
             )
 
-            keep_guids_result = await session.execute(
-                select(Episode.guid).where(Episode.podcast_id == keep.id)
-            )
+            keep_guids_result = await session.execute(select(Episode.guid).where(Episode.podcast_id == keep.id))
             keep_guids = {row[0] for row in keep_guids_result.all()}
 
             for loser in losers:
-                los_eps = await session.execute(
-                    select(Episode).where(Episode.podcast_id == loser.id)
-                )
+                los_eps = await session.execute(select(Episode).where(Episode.podcast_id == loser.id))
                 for ep in los_eps.scalars().all():
                     if ep.guid in keep_guids:
                         await session.delete(ep)
@@ -97,9 +100,7 @@ async def _deduplicate_abs_podcasts():
                 await session.flush()
 
                 await session.execute(
-                    update(SourceConfig)
-                    .where(SourceConfig.podcast_id == loser.id)
-                    .values(podcast_id=keep.id)
+                    update(SourceConfig).where(SourceConfig.podcast_id == loser.id).values(podcast_id=keep.id)
                 )
 
                 await session.delete(loser)
@@ -120,8 +121,10 @@ async def _run_alembic_upgrade() -> None:
     against the same DATABASE_URL).
     """
     import asyncio
-    from alembic import command
+
     from alembic.config import Config
+
+    from alembic import command
 
     def _do_upgrade() -> None:
         cfg = Config("alembic.ini")
@@ -193,8 +196,6 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Podcast Transcription and Search", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
-
-from app.routers import api_podcasts, api_episodes, api_queue, api_search, api_settings, ui, api_portals, api_abs, api_insights
 
 app.include_router(api_podcasts.router)
 app.include_router(api_episodes.router)

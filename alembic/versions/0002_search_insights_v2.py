@@ -43,6 +43,7 @@ Revision ID: 0002_search_insights_v2
 Revises: 0001_initial
 Create Date: 2026-05-29
 """
+
 from __future__ import annotations
 
 from alembic import op
@@ -61,25 +62,12 @@ def upgrade() -> None:
         "ADD COLUMN IF NOT EXISTS embedding_model TEXT "
         "NOT NULL DEFAULT 'openai/text-embedding-3-large'"
     )
-    op.execute(
-        "ALTER TABLE transcript_chunks "
-        "ADD COLUMN IF NOT EXISTS embedding_dim INTEGER "
-        "NOT NULL DEFAULT 3072"
-    )
-    op.execute(
-        "ALTER TABLE transcript_chunks "
-        "ADD COLUMN IF NOT EXISTS start_time DOUBLE PRECISION"
-    )
-    op.execute(
-        "ALTER TABLE transcript_chunks "
-        "ADD COLUMN IF NOT EXISTS end_time DOUBLE PRECISION"
-    )
+    op.execute("ALTER TABLE transcript_chunks ADD COLUMN IF NOT EXISTS embedding_dim INTEGER NOT NULL DEFAULT 3072")
+    op.execute("ALTER TABLE transcript_chunks ADD COLUMN IF NOT EXISTS start_time DOUBLE PRECISION")
+    op.execute("ALTER TABLE transcript_chunks ADD COLUMN IF NOT EXISTS end_time DOUBLE PRECISION")
 
     # --- topic_clusters -------------------------------------------------------
-    op.execute(
-        "ALTER TABLE topic_clusters "
-        "ADD COLUMN IF NOT EXISTS representative_chunks JSONB"
-    )
+    op.execute("ALTER TABLE topic_clusters ADD COLUMN IF NOT EXISTS representative_chunks JSONB")
 
     # --- drop legacy full-table embedding index if present --------------------
     # We don't know its exact historical name; cover the common candidates.

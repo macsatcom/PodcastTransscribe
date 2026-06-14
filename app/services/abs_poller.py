@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 
@@ -19,7 +19,7 @@ async def poll_abs_libraries():
         result = await session.execute(
             select(SourceConfig).where(
                 SourceConfig.source_type == "abs",
-                SourceConfig.enabled == True,
+                SourceConfig.enabled,
             )
         )
         configs = result.scalars().all()
@@ -93,5 +93,5 @@ async def poll_abs_source(source_config_id):
             await episode_queue.enqueue_episodes([str(ep.id) for ep in new_episodes])
             logger.info("ABS poll: enqueued %d new episodes for %s", len(new_episodes), podcast.title)
 
-        config.last_polled_at = datetime.now(timezone.utc)
+        config.last_polled_at = datetime.now(UTC)
         await session.commit()

@@ -2,6 +2,7 @@ import logging
 import re
 
 import httpx
+
 from app.config import settings
 
 logger = logging.getLogger(__name__)
@@ -68,10 +69,17 @@ async def transcribe_local(audio_data: bytes, language: str | None = None) -> tu
         return text, segments
 
 
-async def transcribe_self_hosted(audio_data: bytes, whisper_url: str, language: str | None = None) -> tuple[str, list | None]:
+async def transcribe_self_hosted(
+    audio_data: bytes, whisper_url: str, language: str | None = None
+) -> tuple[str, list | None]:
     endpoint = await _discover_endpoint(whisper_url)
     files = {"file": ("audio.mp3", audio_data, "audio/mpeg")}
-    data = {"response_format": "verbose_json", "temperature": "0.0", "temperature_inc": "0.2", "language": language or "auto"}
+    data = {
+        "response_format": "verbose_json",
+        "temperature": "0.0",
+        "temperature_inc": "0.2",
+        "language": language or "auto",
+    }
 
     async with httpx.AsyncClient(timeout=7200) as client:
         response = await client.post(

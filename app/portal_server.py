@@ -22,12 +22,15 @@ def create_app() -> FastAPI:
         app.mount("/static", StaticFiles(directory=str(app_static)), name="static")
 
     from app.routers import api_search
+
     app.include_router(api_search.router)
 
     from app.routers import api_episodes
+
     app.include_router(api_episodes.router)
 
     from app.routers import api_insights
+
     app.include_router(api_insights.router)
 
     from fastapi import APIRouter, Request
@@ -41,22 +44,28 @@ def create_app() -> FastAPI:
     async def portal_home(request: Request):
         from app.database import async_session
         from app.models.portal import Portal
+
         async with async_session() as session:
             portal = await session.get(Portal, portal_id)
             if not portal:
                 return HTMLResponse("Portal not found", status_code=404)
         return templates.TemplateResponse(
-            request, "portal_home.html", context={"portal": portal},
+            request,
+            "portal_home.html",
+            context={"portal": portal},
         )
 
     @portal_router.get("/episodes/{episode_id}", response_class=HTMLResponse)
     async def portal_episode(request: Request, episode_id: str):
         from app.database import async_session
         from app.models.portal import Portal
+
         async with async_session() as session:
             portal = await session.get(Portal, portal_id)
         return templates.TemplateResponse(
-            request, "portal_episode.html", context={"portal": portal, "episode_id": episode_id},
+            request,
+            "portal_episode.html",
+            context={"portal": portal, "episode_id": episode_id},
         )
 
     @portal_router.get("/insights", response_class=HTMLResponse)

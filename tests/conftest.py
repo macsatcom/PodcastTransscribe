@@ -1,6 +1,6 @@
 import pytest
 import pytest_asyncio
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.database import Base, get_db
@@ -12,6 +12,7 @@ TEST_DATABASE_URL = "postgresql+asyncpg://podcast:podcast@localhost/podcast_tran
 @pytest.fixture(scope="session")
 def event_loop():
     import asyncio
+
     loop = asyncio.new_event_loop()
     yield loop
     loop.close()
@@ -39,6 +40,7 @@ async def db_session(test_engine):
 async def client(db_session):
     async def override_get_db():
         yield db_session
+
     app.dependency_overrides[get_db] = override_get_db
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:

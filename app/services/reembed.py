@@ -13,10 +13,11 @@ two Settings rows that the UI can poll:
 The job is idempotent — chunks already at `target_model` are skipped, so a
 restart-mid-run resumes naturally.
 """
+
 import asyncio
 import logging
 
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select
 
 from app.database import async_session
 from app.models.setting import Setting
@@ -44,9 +45,7 @@ async def _set_setting(session, key: str, value: str) -> None:
 
 async def _count_pending(session, target_model: str) -> int:
     result = await session.execute(
-        select(func.count(TranscriptChunk.id)).where(
-            TranscriptChunk.embedding_model != target_model
-        )
+        select(func.count(TranscriptChunk.id)).where(TranscriptChunk.embedding_model != target_model)
     )
     return int(result.scalar() or 0)
 
@@ -54,11 +53,7 @@ async def _count_pending(session, target_model: str) -> int:
 async def get_status() -> dict:
     """Snapshot of the current re-embed run for the UI."""
     async with async_session() as session:
-        rows = await session.execute(
-            select(Setting).where(
-                Setting.key.in_([STATUS_KEY, PROGRESS_KEY, TARGET_KEY])
-            )
-        )
+        rows = await session.execute(select(Setting).where(Setting.key.in_([STATUS_KEY, PROGRESS_KEY, TARGET_KEY])))
         kv = {row.Setting.key: row.Setting.value for row in rows.all()}
 
     return {
@@ -110,9 +105,7 @@ async def _reembed_loop(target_model: str) -> None:
             while True:
                 async with async_session() as session:
                     result = await session.execute(
-                        select(TranscriptChunk)
-                        .where(TranscriptChunk.embedding_model != target_model)
-                        .limit(BATCH_SIZE)
+                        select(TranscriptChunk).where(TranscriptChunk.embedding_model != target_model).limit(BATCH_SIZE)
                     )
                     batch = result.scalars().all()
                     if not batch:
@@ -122,18 +115,14 @@ async def _reembed_loop(target_model: str) -> None:
                         try:
                             embedding = await client.embed(target_model, chunk.text)
                         except Exception as e:
-                            logger.exception(
-                                "Re-embed: failed chunk %s: %s", chunk.id, e
-                            )
+                            logger.exception("Re-embed: failed chunk %s: %s", chunk.id, e)
                             raise
                         chunk.embedding = embedding
                         chunk.embedding_model = target_model
                         chunk.embedding_dim = len(embedding)
 
                     total_done += len(batch)
-                    await _set_setting(
-                        session, PROGRESS_KEY, f"{total_done}/{total}"
-                    )
+                    await _set_setting(session, PROGRESS_KEY, f"{total_done}/{total}")
                     await session.commit()
 
         async with async_session() as session:

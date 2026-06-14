@@ -27,9 +27,7 @@ async def list_podcasts(
 ):
     query = select(Podcast)
     if source_type:
-        query = query.join(Podcast.source_configs).where(
-            SourceConfig.source_type == source_type
-        ).distinct()
+        query = query.join(Podcast.source_configs).where(SourceConfig.source_type == source_type).distinct()
     result = await db.execute(query.order_by(Podcast.title))
     podcasts = result.scalars().all()
 
@@ -56,7 +54,9 @@ async def list_podcasts(
             "narrator": p.narrator,
             "episode_count": counts.get(p.id, None).count if p.id in counts else 0,
             "ready_count": counts.get(p.id, None).ready if p.id in counts else 0,
-            "latest_episode": counts.get(p.id, None).latest.isoformat() if p.id in counts and counts[p.id].latest else None,
+            "latest_episode": counts.get(p.id, None).latest.isoformat()
+            if p.id in counts and counts[p.id].latest
+            else None,
         }
         for p in podcasts
     ]
@@ -88,9 +88,7 @@ async def get_podcast(podcast_id: UUID, db: AsyncSession = Depends(get_db)):
     podcast = await db.get(Podcast, podcast_id)
     if not podcast:
         return {"error": "not found"}
-    result = await db.execute(
-        select(SourceConfig).where(SourceConfig.podcast_id == podcast_id)
-    )
+    result = await db.execute(select(SourceConfig).where(SourceConfig.podcast_id == podcast_id))
     configs = result.scalars().all()
     return {
         "id": str(podcast.id),
@@ -161,7 +159,7 @@ async def poll_podcast(podcast_id: UUID, db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(SourceConfig).where(
             SourceConfig.podcast_id == podcast_id,
-            SourceConfig.enabled == True,
+            SourceConfig.enabled,
         )
     )
     config = result.scalar_one_or_none()

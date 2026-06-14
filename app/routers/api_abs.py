@@ -5,12 +5,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.adapters.abs import ABSSourceAdapter
-from app.config import settings
 from app.database import get_db
 from app.models.episode import Episode
 from app.models.podcast import Podcast
-from app.models.source_config import SourceConfig
 from app.models.setting import Setting
+from app.models.source_config import SourceConfig
 from app.services.queue_manager import episode_queue
 
 logger = logging.getLogger(__name__)
@@ -76,9 +75,7 @@ async def browse_library_items(
         return {"error": str(e), "items": []}
 
     abs_ids = [item.get("id", "") for item in items if item.get("id")]
-    result = await db.execute(
-        select(Podcast).where(Podcast.abs_item_id.in_(abs_ids))
-    )
+    result = await db.execute(select(Podcast).where(Podcast.abs_item_id.in_(abs_ids)))
     our_podcasts = {p.abs_item_id: p for p in result.scalars().all()}
 
     episode_data = {}
@@ -151,19 +148,21 @@ async def browse_library_items(
 
         author = metadata.get("author") or metadata.get("authorName") or metadata.get("narratorName") or ""
 
-        result_items.append({
-            "id": abs_id,
-            "title": metadata.get("title", abs_id),
-            "author": author,
-            "cover_url": f"/api/abs/items/{abs_id}/cover",
-            "media_type": media_type,
-            "duration": media.get("duration"),
-            "num_episodes": num_total,
-            "transcribe_status": transcribe_status,
-            "auto_process": auto_process,
-            "latest_model": latest_model,
-            "total_processing_seconds": total_processing_seconds,
-        })
+        result_items.append(
+            {
+                "id": abs_id,
+                "title": metadata.get("title", abs_id),
+                "author": author,
+                "cover_url": f"/api/abs/items/{abs_id}/cover",
+                "media_type": media_type,
+                "duration": media.get("duration"),
+                "num_episodes": num_total,
+                "transcribe_status": transcribe_status,
+                "auto_process": auto_process,
+                "latest_model": latest_model,
+                "total_processing_seconds": total_processing_seconds,
+            }
+        )
 
     return {"items": result_items}
 
@@ -180,8 +179,7 @@ async def get_abs_item(
 
     if podcast:
         rows = await db.execute(
-            select(Episode).where(Episode.podcast_id == podcast.id)
-                           .order_by(Episode.published_at.desc())
+            select(Episode).where(Episode.podcast_id == podcast.id).order_by(Episode.published_at.desc())
         )
         local_episodes = rows.scalars().all()
 
@@ -189,19 +187,21 @@ async def get_abs_item(
             queued_ids = {str(eid) for eid in episode_queue.get_queued_ids()}
             episode_list = []
             for ep in local_episodes:
-                episode_list.append({
-                    "id": ep.abs_episode_id or str(ep.chapter_index or 0),
-                    "title": ep.title or "",
-                    "duration": ep.duration_seconds,
-                    "status": normalize_status(ep.status),
-                    "our_episode_id": str(ep.id),
-                    "model_used": ep.model_used,
-                    "processing_seconds": ep.processing_seconds,
-                    "cost": ep.cost,
-                    "error_message": ep.error_message if ep.status == "error" else None,
-                    "published_at": ep.published_at.isoformat() if ep.published_at else None,
-                    "queued": str(ep.id) in queued_ids,
-                })
+                episode_list.append(
+                    {
+                        "id": ep.abs_episode_id or str(ep.chapter_index or 0),
+                        "title": ep.title or "",
+                        "duration": ep.duration_seconds,
+                        "status": normalize_status(ep.status),
+                        "our_episode_id": str(ep.id),
+                        "model_used": ep.model_used,
+                        "processing_seconds": ep.processing_seconds,
+                        "cost": ep.cost,
+                        "error_message": ep.error_message if ep.status == "error" else None,
+                        "published_at": ep.published_at.isoformat() if ep.published_at else None,
+                        "queued": str(ep.id) in queued_ids,
+                    }
+                )
             return {
                 "id": item_id,
                 "our_id": str(podcast.id),
@@ -253,7 +253,13 @@ async def get_abs_item(
         real_title = metadata.get("title", "")
         if real_title and (podcast.title == podcast.abs_item_id or not podcast.author):
             podcast.title = real_title
-            podcast.author = metadata.get("author") or metadata.get("authorName") or metadata.get("narratorName") or podcast.author or ""
+            podcast.author = (
+                metadata.get("author")
+                or metadata.get("authorName")
+                or metadata.get("narratorName")
+                or podcast.author
+                or ""
+            )
             await db.commit()
 
     our_id = str(podcast.id) if podcast else None
@@ -271,9 +277,7 @@ async def get_abs_item(
 
     our_episodes_map = {}
     if podcast:
-        rows = await db.execute(
-            select(Episode).where(Episode.podcast_id == podcast.id)
-        )
+        rows = await db.execute(select(Episode).where(Episode.podcast_id == podcast.id))
         for ep in rows.scalars().all():
             key = ep.abs_episode_id or str(ep.chapter_index or 0)
             our_episodes_map[key] = ep
@@ -331,19 +335,21 @@ async def get_abs_item(
 
         our_ep = our_episodes_map.get(ep_id)
         published_at = ep.get("publishedAt") if media_type == "podcast" else None
-        episode_list.append({
-            "id": ep_id,
-            "title": ep_title,
-            "duration": ep_duration,
-            "status": normalize_status(our_ep.status) if our_ep else "none",
-            "our_episode_id": str(our_ep.id) if our_ep else None,
-            "model_used": our_ep.model_used if our_ep else None,
-            "processing_seconds": our_ep.processing_seconds if our_ep else None,
-            "cost": our_ep.cost if our_ep else None,
-            "error_message": our_ep.error_message if our_ep and our_ep.status == "error" else None,
-            "published_at": published_at,
-            "queued": str(our_ep.id) in queued_ids if our_ep else False,
-        })
+        episode_list.append(
+            {
+                "id": ep_id,
+                "title": ep_title,
+                "duration": ep_duration,
+                "status": normalize_status(our_ep.status) if our_ep else "none",
+                "our_episode_id": str(our_ep.id) if our_ep else None,
+                "model_used": our_ep.model_used if our_ep else None,
+                "processing_seconds": our_ep.processing_seconds if our_ep else None,
+                "cost": our_ep.cost if our_ep else None,
+                "error_message": our_ep.error_message if our_ep and our_ep.status == "error" else None,
+                "published_at": published_at,
+                "queued": str(our_ep.id) in queued_ids if our_ep else False,
+            }
+        )
 
     return {
         "id": item_id,
@@ -383,9 +389,7 @@ async def toggle_auto_process(
     adapter: ABSSourceAdapter = Depends(get_adapter),
 ):
     auto_process = body.get("auto_process", False)
-    podcast = (await db.execute(
-        select(Podcast).where(Podcast.abs_item_id == item_id)
-    )).scalar_one_or_none()
+    podcast = (await db.execute(select(Podcast).where(Podcast.abs_item_id == item_id))).scalar_one_or_none()
 
     if not podcast:
         try:
@@ -426,9 +430,7 @@ async def toggle_auto_process(
 
 @router.post("/items/{item_id}/enqueue-pending")
 async def enqueue_pending(item_id: str, db: AsyncSession = Depends(get_db)):
-    podcast = (await db.execute(
-        select(Podcast).where(Podcast.abs_item_id == item_id)
-    )).scalar_one_or_none()
+    podcast = (await db.execute(select(Podcast).where(Podcast.abs_item_id == item_id))).scalar_one_or_none()
 
     if not podcast:
         return {"status": "no podcast found", "count": 0}
@@ -450,9 +452,7 @@ async def enqueue_pending_batch(body: dict, db: AsyncSession = Depends(get_db)):
     abs_item_ids = body.get("abs_item_ids", [])
     total = 0
     for abs_id in abs_item_ids:
-        podcast = (await db.execute(
-            select(Podcast).where(Podcast.abs_item_id == abs_id)
-        )).scalar_one_or_none()
+        podcast = (await db.execute(select(Podcast).where(Podcast.abs_item_id == abs_id))).scalar_one_or_none()
         if not podcast:
             continue
         rows = await db.execute(
@@ -485,9 +485,7 @@ async def sync_library(
         if not abs_item_id:
             continue
 
-        existing = (await db.execute(
-            select(Podcast).where(Podcast.abs_item_id == abs_item_id)
-        )).scalar_one_or_none()
+        existing = (await db.execute(select(Podcast).where(Podcast.abs_item_id == abs_item_id))).scalar_one_or_none()
         if existing:
             continue
 

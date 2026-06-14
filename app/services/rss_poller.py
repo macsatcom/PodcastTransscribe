@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 
@@ -18,7 +18,7 @@ async def poll_all_feeds():
         result = await session.execute(
             select(SourceConfig).where(
                 SourceConfig.source_type == "rss",
-                SourceConfig.enabled == True,
+                SourceConfig.enabled,
             )
         )
         configs = result.scalars().all()
@@ -32,9 +32,7 @@ async def poll_all_feeds():
 
 async def poll_feed(source_config_id):
     async with async_session() as session:
-        result = await session.execute(
-            select(SourceConfig).where(SourceConfig.id == source_config_id)
-        )
+        result = await session.execute(select(SourceConfig).where(SourceConfig.id == source_config_id))
         config = result.scalar_one_or_none()
         if not config:
             return
@@ -80,7 +78,7 @@ async def poll_feed(source_config_id):
             await session.flush()
             new_episode_ids.append(episode.id)
 
-        config.last_polled_at = datetime.now(timezone.utc)
+        config.last_polled_at = datetime.now(UTC)
         await session.commit()
 
     if auto_process and new_episode_ids:

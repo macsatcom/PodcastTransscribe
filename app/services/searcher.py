@@ -12,12 +12,14 @@ Semantic search:
   skip explicit MMR over the chunk candidate set and revisit only if
   near-duplicate chunks within a single episode become a quality issue.
 """
+
 import logging
+
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.services.openrouter import OpenRouterClient, get_api_key
 from app.models.setting import Setting
+from app.services.openrouter import OpenRouterClient, get_api_key
 
 logger = logging.getLogger(__name__)
 
@@ -40,21 +42,23 @@ SEMANTIC_CANDIDATE_POOL = 200
 
 # Whitelist of Postgres text-search configurations we accept. Anything outside
 # this set is coerced to 'simple' so the regconfig name is never user-controlled.
-_FTS_LANG_WHITELIST = frozenset({
-    "simple",
-    "danish",
-    "english",
-    "german",
-    "swedish",
-    "norwegian",
-    "french",
-    "spanish",
-    "italian",
-    "dutch",
-    "portuguese",
-    "finnish",
-    "russian",
-})
+_FTS_LANG_WHITELIST = frozenset(
+    {
+        "simple",
+        "danish",
+        "english",
+        "german",
+        "swedish",
+        "norwegian",
+        "french",
+        "spanish",
+        "italian",
+        "dutch",
+        "portuguese",
+        "finnish",
+        "russian",
+    }
+)
 
 
 def _safe_lang(language: str) -> str:
@@ -77,7 +81,8 @@ async def _get_distance_threshold(session: AsyncSession) -> float:
     except (TypeError, ValueError):
         logger.warning(
             "Invalid semantic_distance_threshold %r, falling back to %.2f",
-            setting.value, DEFAULT_DISTANCE_THRESHOLD,
+            setting.value,
+            DEFAULT_DISTANCE_THRESHOLD,
         )
         return DEFAULT_DISTANCE_THRESHOLD
 
@@ -276,19 +281,21 @@ async def search_semantic(
     results: list[dict] = []
     for agg in aggregated:
         best = agg["chunks"][0]
-        results.append({
-            "episode_id": agg["episode_id"],
-            "episode_title": agg["episode_title"],
-            "published_at": agg["published_at"],
-            "podcast_title": agg["podcast_title"],
-            "cover_url": agg["cover_url"],
-            "media_type": agg["media_type"],
-            "snippet": best["text"],
-            "score": best["score"],
-            "chunk_index": best["chunk_index"],
-            "chunks": agg["chunks"],
-            "type": "semantic",
-        })
+        results.append(
+            {
+                "episode_id": agg["episode_id"],
+                "episode_title": agg["episode_title"],
+                "published_at": agg["published_at"],
+                "podcast_title": agg["podcast_title"],
+                "cover_url": agg["cover_url"],
+                "media_type": agg["media_type"],
+                "snippet": best["text"],
+                "score": best["score"],
+                "chunk_index": best["chunk_index"],
+                "chunks": agg["chunks"],
+                "type": "semantic",
+            }
+        )
 
     return {
         "results": results,

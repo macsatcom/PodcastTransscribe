@@ -8,10 +8,10 @@ Revision ID: 0003_episode_perf_indexes
 Revises: 0002_search_insights_v2
 Create Date: 2026-06-12
 """
+
 from __future__ import annotations
 
 from alembic import op
-
 
 # revision identifiers, used by Alembic.
 revision = "0003_episode_perf_indexes"

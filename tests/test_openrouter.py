@@ -1,4 +1,4 @@
-from unittest.mock import Mock, patch, AsyncMock
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
@@ -14,9 +14,7 @@ def set_api_key():
 @pytest.mark.asyncio
 async def test_summarize():
     client = OpenRouterClient()
-    mock_response = {
-        "choices": [{"message": {"content": "This is a summary."}}]
-    }
+    mock_response = {"choices": [{"message": {"content": "This is a summary."}}]}
     with patch.object(client._http, "post", new_callable=AsyncMock) as mock_post:
         mock_response_instance = AsyncMock()
         mock_response_instance.status_code = 200
@@ -30,9 +28,7 @@ async def test_summarize():
 @pytest.mark.asyncio
 async def test_embed():
     client = OpenRouterClient()
-    mock_response = {
-        "data": [{"embedding": [0.1, 0.2, 0.3]}]
-    }
+    mock_response = {"data": [{"embedding": [0.1, 0.2, 0.3]}]}
     with patch.object(client._http, "post", new_callable=AsyncMock) as mock_post:
         mock_response_instance = AsyncMock()
         mock_response_instance.status_code = 200

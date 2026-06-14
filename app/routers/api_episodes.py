@@ -66,9 +66,7 @@ async def get_episode(episode_id: UUID, db: AsyncSession = Depends(get_db)):
     episode = await db.get(Episode, episode_id)
     if not episode:
         return {"error": "not found"}
-    result = await db.execute(
-        select(Transcript).where(Transcript.episode_id == episode_id)
-    )
+    result = await db.execute(select(Transcript).where(Transcript.episode_id == episode_id))
     transcript = result.scalar_one_or_none()
     return {
         "id": str(episode.id),
@@ -86,16 +84,17 @@ async def get_episode(episode_id: UUID, db: AsyncSession = Depends(get_db)):
             "full_text": transcript.full_text if transcript else None,
             "summary": transcript.summary if transcript else None,
             "detected_language": transcript.detected_language if transcript else None,
-        } if transcript else None,
+        }
+        if transcript
+        else None,
     }
 
 
 @router.get("/{episode_id}/chunks")
 async def get_episode_chunks(episode_id: UUID, db: AsyncSession = Depends(get_db)):
     from app.models.transcript import TranscriptChunk
-    result = await db.execute(
-        select(Transcript).where(Transcript.episode_id == episode_id)
-    )
+
+    result = await db.execute(select(Transcript).where(Transcript.episode_id == episode_id))
     transcript = result.scalar_one_or_none()
     if not transcript:
         return []
@@ -124,9 +123,7 @@ async def reset_episode(
     episode = await db.get(Episode, episode_id)
     if not episode:
         return {"error": "not found"}
-    result = await db.execute(
-        select(Transcript).where(Transcript.episode_id == episode_id)
-    )
+    result = await db.execute(select(Transcript).where(Transcript.episode_id == episode_id))
     transcript = result.scalar_one_or_none()
     if transcript:
         await db.delete(transcript)

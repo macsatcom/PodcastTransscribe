@@ -1,8 +1,8 @@
 import logging
+
 from app.models.setting import Setting
 from app.services.openrouter import OpenRouterClient, get_api_key
 from app.services.whisper_client import transcribe_local, transcribe_self_hosted
-from httpx import HTTPStatusError
 
 logger = logging.getLogger(__name__)
 

@@ -3,18 +3,18 @@ import logging
 import time
 from contextlib import AsyncExitStack
 
-from sqlalchemy import select, delete
+from sqlalchemy import delete, select
 
 from app.adapters import RSSSourceAdapter
 from app.adapters.abs import ABSSourceAdapter
 from app.config import settings
 from app.database import async_session
 from app.models.episode import Episode
-from app.models.transcript import Transcript, TranscriptChunk
 from app.models.setting import Setting
-from app.services.transcribe import transcribe_audio
-from app.services.summarize import generate_summary
+from app.models.transcript import Transcript, TranscriptChunk
 from app.services.embedder import chunk_transcript, embed_chunks
+from app.services.summarize import generate_summary
+from app.services.transcribe import transcribe_audio
 
 logger = logging.getLogger(__name__)
 _semaphore = asyncio.Semaphore(settings.max_concurrent_processing)
@@ -53,8 +53,8 @@ async def process_episode(episode_id):
                 await session.commit()
 
                 if getattr(episode, "abs_item_id", None):
-                    abs_url = (await session.get(Setting, "abs_url"))
-                    abs_key = (await session.get(Setting, "abs_api_key"))
+                    abs_url = await session.get(Setting, "abs_url")
+                    abs_key = await session.get(Setting, "abs_api_key")
                     adapter = ABSSourceAdapter(
                         abs_url=abs_url.value if abs_url else "",
                         api_key=abs_key.value if abs_key else "",
@@ -81,14 +81,10 @@ async def process_episode(episode_id):
                 da_chars = sum(1 for c in full_text if c in "\u00e6\u00f8\u00e5\u00c6\u00d8\u00c5")
                 language = "danish" if da_chars > max(3, len(full_text) * 0.005) else "english"
 
-                result = await session.execute(
-                    select(Transcript).where(Transcript.episode_id == episode.id)
-                )
+                result = await session.execute(select(Transcript).where(Transcript.episode_id == episode.id))
                 existing = result.scalar_one_or_none()
                 if existing:
-                    await session.execute(
-                        delete(TranscriptChunk).where(TranscriptChunk.transcript_id == existing.id)
-                    )
+                    await session.execute(delete(TranscriptChunk).where(TranscriptChunk.transcript_id == existing.id))
                     await session.delete(existing)
                     await session.flush()
 
@@ -121,22 +117,22 @@ async def process_episode(episode_id):
 
                 chunks = chunk_transcript(full_text, segments)
                 chunk_texts = [c.text for c in chunks]
-                model_used_embed, embeddings = await _run_with_timeout(
-                    embed_chunks(session, chunk_texts), "indexing"
-                )
+                model_used_embed, embeddings = await _run_with_timeout(embed_chunks(session, chunk_texts), "indexing")
                 embedding_dim = len(embeddings[0]) if embeddings else None
 
-                for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
-                    session.add(TranscriptChunk(
-                        transcript_id=transcript.id,
-                        chunk_index=i,
-                        text=chunk.text,
-                        embedding=embedding,
-                        embedding_model=model_used_embed,
-                        embedding_dim=embedding_dim,
-                        start_time=chunk.start_time,
-                        end_time=chunk.end_time,
-                    ))
+                for i, (chunk, embedding) in enumerate(zip(chunks, embeddings, strict=False)):
+                    session.add(
+                        TranscriptChunk(
+                            transcript_id=transcript.id,
+                            chunk_index=i,
+                            text=chunk.text,
+                            embedding=embedding,
+                            embedding_model=model_used_embed,
+                            embedding_dim=embedding_dim,
+                            start_time=chunk.start_time,
+                            end_time=chunk.end_time,
+                        )
+                    )
 
                 total = time.monotonic() - t0
                 episode.model_used = model_used
@@ -146,21 +142,21 @@ async def process_episode(episode_id):
                 await session.commit()
                 logger.info("EPISODE %s: total %.0fs \u2014 ready", episode_id, total)
 
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 elapsed = time.monotonic() - t0
                 stage_at_failure = current_stage
                 logger.error(
                     "EPISODE %s: timed out in stage '%s' after %.0fs",
-                    episode_id, stage_at_failure, elapsed,
+                    episode_id,
+                    stage_at_failure,
+                    elapsed,
                 )
                 try:
                     await session.rollback()
                     refreshed = await session.get(Episode, episode_id)
                     if refreshed:
                         refreshed.status = "error"
-                        refreshed.error_message = (
-                            f"Timed out after {int(elapsed)}s in stage: {stage_at_failure}"
-                        )
+                        refreshed.error_message = f"Timed out after {int(elapsed)}s in stage: {stage_at_failure}"
                         await session.commit()
                 except Exception:
                     pass
@@ -169,7 +165,10 @@ async def process_episode(episode_id):
                 stage_at_failure = current_stage
                 logger.error(
                     "EPISODE %s: failed in stage '%s' after %.0fs: %s",
-                    episode_id, stage_at_failure, time.monotonic() - t0, e,
+                    episode_id,
+                    stage_at_failure,
+                    time.monotonic() - t0,
+                    e,
                 )
                 try:
                     await session.rollback()

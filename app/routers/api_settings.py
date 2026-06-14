@@ -2,9 +2,9 @@ import httpx
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.adapters.abs import ABSSourceAdapter
 from app.database import get_db
 from app.models.setting import Setting
-from app.adapters.abs import ABSSourceAdapter
 from app.services import reembed
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
@@ -23,9 +23,7 @@ VALID_KEYS = {
 
 @router.get("")
 async def get_settings(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(
-        Setting.__table__.select().where(Setting.key.in_(VALID_KEYS))
-    )
+    result = await db.execute(Setting.__table__.select().where(Setting.key.in_(VALID_KEYS)))
     rows = result.fetchall()
     return {row.key: row.value for row in rows}
 

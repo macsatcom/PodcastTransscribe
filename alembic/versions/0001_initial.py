@@ -14,6 +14,7 @@ Revision ID: 0001_initial
 Revises:
 Create Date: 2026-05-29
 """
+
 from __future__ import annotations
 
 # revision identifiers, used by Alembic.

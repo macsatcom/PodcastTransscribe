@@ -1,8 +1,6 @@
 import ast
 from pathlib import Path
 
-import pytest
-
 
 def test_list_episodes_defines_offset_parameter_and_applies_it():
     path = Path(__file__).resolve().parents[1] / "app/routers/api_episodes.py"
@@ -10,8 +8,7 @@ def test_list_episodes_defines_offset_parameter_and_applies_it():
     tree = ast.parse(source)
 
     list_fn = next(
-        node for node in tree.body
-        if isinstance(node, ast.AsyncFunctionDef) and node.name == "list_episodes"
+        node for node in tree.body if isinstance(node, ast.AsyncFunctionDef) and node.name == "list_episodes"
     )
 
     arg_names = [arg.arg for arg in list_fn.args.args]
@@ -31,10 +28,7 @@ def test_list_episodes_defines_offset_parameter_and_applies_it():
     assert isinstance(limit_default.func, ast.Name)
     assert limit_default.func.id == "Query"
 
-    default_kw = next(
-        kw for kw in limit_default.keywords
-        if kw.arg == "default"
-    )
+    default_kw = next(kw for kw in limit_default.keywords if kw.arg == "default")
     assert isinstance(default_kw.value, ast.Constant)
     assert default_kw.value.value == 200
 

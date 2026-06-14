@@ -1,8 +1,8 @@
 import asyncio
 import logging
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select, update, func
+from sqlalchemy import func, select, update
 
 from app.config import settings
 from app.database import async_session
@@ -47,9 +47,10 @@ class EpisodeQueue:
     async def enqueue_all_pending(self, limit: int = 500) -> int:
         async with async_session() as session:
             result = await session.execute(
-                select(Episode.id).where(
-                    Episode.status.in_(["new", "error"])
-                ).order_by(Episode.created_at.asc()).limit(limit)
+                select(Episode.id)
+                .where(Episode.status.in_(["new", "error"]))
+                .order_by(Episode.created_at.asc())
+                .limit(limit)
             )
             ids = [str(row[0]) for row in result.all()]
         if ids:
@@ -61,7 +62,7 @@ class EpisodeQueue:
         while self._running:
             try:
                 episode_id = await asyncio.wait_for(self._queue.get(), timeout=1.0)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 continue
 
             self._enqueued_ids.discard(episode_id)
@@ -92,18 +93,13 @@ class EpisodeQueue:
 
         async with async_session() as session:
             result = await session.execute(
-                update(Episode)
-                .where(Episode.status.in_(RUNNING_STATUSES))
-                .values(status="new", error_message=None)
+                update(Episode).where(Episode.status.in_(RUNNING_STATUSES)).values(status="new", error_message=None)
             )
             if result.rowcount:
                 logger.info("Reset %d stale episodes to queued", result.rowcount)
                 await session.commit()
 
-        self._workers = [
-            asyncio.create_task(self._worker(i))
-            for i in range(self._worker_count)
-        ]
+        self._workers = [asyncio.create_task(self._worker(i)) for i in range(self._worker_count)]
         logger.info("EpisodeQueue started with %d workers", self._worker_count)
 
     async def stop(self):
@@ -116,7 +112,7 @@ class EpisodeQueue:
         logger.info("EpisodeQueue stopped")
 
     async def stale_check(self):
-        cutoff = datetime.now(timezone.utc) - timedelta(minutes=STALE_TIMEOUT_MINUTES)
+        cutoff = datetime.now(UTC) - timedelta(minutes=STALE_TIMEOUT_MINUTES)
         async with async_session() as session:
             result = await session.execute(
                 select(Episode).where(
@@ -151,8 +147,7 @@ class EpisodeQueue:
             "queue_size": self._queue.qsize(),
             "workers": self._worker_count,
             "currently_processing": [
-                {"episode_id": eid, "title": title}
-                for eid, title in self._currently_processing.items()
+                {"episode_id": eid, "title": title} for eid, title in self._currently_processing.items()
             ],
         }
 

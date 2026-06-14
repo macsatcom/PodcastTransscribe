@@ -1,3 +1,5 @@
+import warnings
+
 from pydantic_settings import BaseSettings
 
 
@@ -12,11 +14,14 @@ class Settings(BaseSettings):
     abs_url: str = ""
     abs_api_key: str = ""
 
-    model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
+    model_config = {
+        "env_file": ".env",
+        "env_file_encoding": "utf-8",
+        "extra": "ignore",
+    }
 
 
 settings = Settings()
 
 if not settings.openrouter_api_key:
-    import warnings
-    warnings.warn("OPENROUTER_API_KEY is not set. AI features will fail at runtime.")
+    warnings.warn("OPENROUTER_API_KEY is not set. AI features will fail at runtime.", stacklevel=2)

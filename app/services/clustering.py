@@ -19,6 +19,7 @@ Outputs:
       assignments; ``score`` is the count of chunks from that episode in the
       cluster, normalized to [0, 1] over the cluster.
 """
+
 import logging
 import math
 import uuid
@@ -115,9 +116,7 @@ async def run_clustering():
         # Wipe prior auto results.
         await session.execute(
             delete(EpisodeTopic).where(
-                EpisodeTopic.topic_id.in_(
-                    select(TopicCluster.id).where(TopicCluster.source == "auto")
-                )
+                EpisodeTopic.topic_id.in_(select(TopicCluster.id).where(TopicCluster.source == "auto"))
             )
         )
         await session.execute(delete(TopicCluster).where(TopicCluster.source == "auto"))
@@ -137,14 +136,16 @@ async def run_clustering():
             rep_indices = indices[order[:REPRESENTATIVES_PER_CLUSTER]]
             representatives = []
             for ridx in rep_indices:
-                representatives.append({
-                    "chunk_id": str(chunk_ids[ridx]),
-                    "episode_id": str(episode_ids[ridx]),
-                    "podcast_id": str(podcast_ids[ridx]),
-                    "text": chunk_texts[ridx],
-                    "start_time": chunk_starts[ridx],
-                    "end_time": chunk_ends[ridx],
-                })
+                representatives.append(
+                    {
+                        "chunk_id": str(chunk_ids[ridx]),
+                        "episode_id": str(episode_ids[ridx]),
+                        "podcast_id": str(podcast_ids[ridx]),
+                        "text": chunk_texts[ridx],
+                        "start_time": chunk_starts[ridx],
+                        "end_time": chunk_ends[ridx],
+                    }
+                )
 
             label_text = await _generate_label(session, representatives)
 

@@ -13,7 +13,9 @@ class Transcript(Base):
     __tablename__ = "transcripts"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    episode_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("episodes.id"), nullable=False, unique=True)
+    episode_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("episodes.id"), nullable=False, unique=True
+    )
     full_text: Mapped[str] = mapped_column(Text, nullable=False)
     detected_language: Mapped[str] = mapped_column(Text, nullable=True)
     summary: Mapped[str] = mapped_column(Text, nullable=True)
@@ -40,6 +42,4 @@ class TranscriptChunk(Base):
 
     transcript = relationship("Transcript", back_populates="chunks")
 
-    __table_args__ = (
-        UniqueConstraint("transcript_id", "chunk_index", name="uq_chunk_index"),
-    )
+    __table_args__ = (UniqueConstraint("transcript_id", "chunk_index", name="uq_chunk_index"),)

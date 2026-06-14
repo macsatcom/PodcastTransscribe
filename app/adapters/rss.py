@@ -45,15 +45,17 @@ class RSSSourceAdapter(BaseSourceAdapter):
             if not cover_url and hasattr(entry, "itunes_image"):
                 cover_url = entry.itunes_image.get("href")
 
-            episodes.append(EpisodeMetadata(
-                guid=entry.get("id", entry.get("link", "")),
-                title=entry.get("title", ""),
-                description=strip_html(entry.get("description", entry.get("summary", ""))),
-                audio_url=audio_url or "",
-                duration_seconds=duration,
-                published_at=published,
-                cover_url=cover_url,
-            ))
+            episodes.append(
+                EpisodeMetadata(
+                    guid=entry.get("id", entry.get("link", "")),
+                    title=entry.get("title", ""),
+                    description=strip_html(entry.get("description", entry.get("summary", ""))),
+                    audio_url=audio_url or "",
+                    duration_seconds=duration,
+                    published_at=published,
+                    cover_url=cover_url,
+                )
+            )
         return episodes
 
     async def fetch_audio(self, audio_url: str) -> BinaryIO:
@@ -66,19 +68,18 @@ class RSSSourceAdapter(BaseSourceAdapter):
 
         for attempt in range(3):
             try:
-                async with httpx.AsyncClient(
-                    timeout=600, follow_redirects=True, headers=headers
-                ) as client:
+                async with httpx.AsyncClient(timeout=600, follow_redirects=True, headers=headers) as client:
                     async with client.stream("GET", audio_url) as response:
                         response.raise_for_status()
                         chunks = []
                         async for chunk in response.aiter_bytes():
                             chunks.append(chunk)
                         return io.BytesIO(b"".join(chunks))
-            except (httpx.RemoteProtocolError, httpx.ReadTimeout, httpx.ConnectError) as e:
+            except (httpx.RemoteProtocolError, httpx.ReadTimeout, httpx.ConnectError):
                 if attempt == 2:
                     raise
                 import asyncio
+
                 await asyncio.sleep(1)
 
     def _parse_duration(self, duration: str) -> int | None:

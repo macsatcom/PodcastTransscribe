@@ -1,6 +1,7 @@
-import pytest
-from unittest.mock import patch, AsyncMock, MagicMock, ANY
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
+
+import pytest
 
 from app.services.pipeline import process_episode
 
@@ -33,7 +34,9 @@ async def test_process_episode_full_flow():
         mock_transcript = MagicMock()
         mock_transcript.id = transcript_id
 
-        mock_session.get.side_effect = lambda model, id: mock_episode if str(id) == str(mock_episode.id) else mock_transcript
+        mock_session.get.side_effect = lambda model, id: (
+            mock_episode if str(id) == str(mock_episode.id) else mock_transcript
+        )
 
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = None

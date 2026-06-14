@@ -16,6 +16,7 @@ Quality controls
   threshold → short "not enough evidence" reply with the few snippets we did
   find, rather than hallucinating an answer from thin context.
 """
+
 from __future__ import annotations
 
 import logging
@@ -152,19 +153,21 @@ async def _retrieve_candidates(
         except Exception:
             logger.warning("Failed to parse embedding for chunk %s", r.chunk_index)
             continue
-        chunks.append({
-            "text": r.text,
-            "chunk_index": int(r.chunk_index),
-            "start_time": float(r.start_time) if r.start_time is not None else None,
-            "end_time": float(r.end_time) if r.end_time is not None else None,
-            "distance": float(r.distance),
-            "embedding": vec,
-            "episode_id": str(r.episode_id),
-            "episode_title": r.episode_title,
-            "published_at": r.published_at.isoformat() if r.published_at else None,
-            "podcast_id": str(r.podcast_id),
-            "podcast_title": r.podcast_title,
-        })
+        chunks.append(
+            {
+                "text": r.text,
+                "chunk_index": int(r.chunk_index),
+                "start_time": float(r.start_time) if r.start_time is not None else None,
+                "end_time": float(r.end_time) if r.end_time is not None else None,
+                "distance": float(r.distance),
+                "embedding": vec,
+                "episode_id": str(r.episode_id),
+                "episode_title": r.episode_title,
+                "published_at": r.published_at.isoformat() if r.published_at else None,
+                "podcast_id": str(r.podcast_id),
+                "podcast_title": r.podcast_title,
+            }
+        )
     return chunks
 
 
@@ -269,7 +272,11 @@ async def ask_question(
         query_embedding = await client.embed(model, question)
 
     candidates = await _retrieve_candidates(
-        session, query_embedding, model, threshold, podcast_ids,
+        session,
+        query_embedding,
+        model,
+        threshold,
+        podcast_ids,
     )
 
     if len(candidates) < MIN_CHUNKS_FOR_ANSWER:
@@ -312,24 +319,22 @@ async def ask_question(
     user_message = _build_user_message(question, selected)
 
     summarization_setting = await session.get(Setting, "summarization_model")
-    chat_model = (
-        summarization_setting.value if summarization_setting else "openai/gpt-4o-mini"
-    )
+    chat_model = summarization_setting.value if summarization_setting else "openai/gpt-4o-mini"
 
     async with OpenRouterClient(api_key=api_key) as client:
-        result = await client._post("chat/completions", {
-            "model": chat_model,
-            "messages": [
-                {"role": "system", "content": RAG_SYSTEM_PROMPT},
-                {"role": "user", "content": user_message},
-            ],
-        })
+        result = await client._post(
+            "chat/completions",
+            {
+                "model": chat_model,
+                "messages": [
+                    {"role": "system", "content": RAG_SYSTEM_PROMPT},
+                    {"role": "user", "content": user_message},
+                ],
+            },
+        )
 
     choices = result.get("choices", [])
-    answer = (
-        choices[0].get("message", {}).get("content", "")
-        if choices else "Unable to generate an answer."
-    )
+    answer = choices[0].get("message", {}).get("content", "") if choices else "Unable to generate an answer."
 
     return {
         "answer": answer,

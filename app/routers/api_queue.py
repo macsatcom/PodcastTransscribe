@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from app.database import get_db
 from app.models.episode import Episode
-from app.services.queue_manager import episode_queue, RUNNING_STATUSES
+from app.services.queue_manager import RUNNING_STATUSES, episode_queue
 
 router = APIRouter(prefix="/api", tags=["queue"])
 
@@ -30,15 +30,9 @@ async def get_queue(db: AsyncSession = Depends(get_db)):
     total_result = await db.execute(total_query)
     total_by_status = {row[0]: row[1] for row in total_result.all()}
 
-    total_counts = {
-        "running": sum(total_by_status.get(s, 0) for s in RUNNING_STATUSES),
-        "queued": total_by_status.get("new", 0),
-        "error": total_by_status.get("error", 0),
-        "done": total_by_status.get("ready", 0),
-    }
-
     running_query = (
-        select(Episode).options(joinedload(Episode.podcast))
+        select(Episode)
+        .options(joinedload(Episode.podcast))
         .where(Episode.status.in_(RUNNING_STATUSES))
         .order_by(Episode.created_at.desc())
         .limit(50)
@@ -49,7 +43,8 @@ async def get_queue(db: AsyncSession = Depends(get_db)):
     queued_ids = episode_queue.get_queued_ids()
     if queued_ids:
         queued_query = (
-            select(Episode).options(joinedload(Episode.podcast))
+            select(Episode)
+            .options(joinedload(Episode.podcast))
             .where(Episode.id.in_(queued_ids))
             .order_by(Episode.created_at.asc())
             .limit(200)
@@ -60,7 +55,8 @@ async def get_queue(db: AsyncSession = Depends(get_db)):
         queued = []
 
     error_query = (
-        select(Episode).options(joinedload(Episode.podcast))
+        select(Episode)
+        .options(joinedload(Episode.podcast))
         .where(Episode.status == "error")
         .order_by(Episode.created_at.desc())
         .limit(20)
@@ -69,7 +65,8 @@ async def get_queue(db: AsyncSession = Depends(get_db)):
     error = [_serialize(e) for e in error_result.scalars().all()]
 
     done_query = (
-        select(Episode).options(joinedload(Episode.podcast))
+        select(Episode)
+        .options(joinedload(Episode.podcast))
         .where(Episode.status == "ready")
         .order_by(Episode.created_at.desc())
         .limit(50)

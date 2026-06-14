@@ -1,4 +1,5 @@
 """Lightweight HTML utilities (no extra deps — stdlib only)."""
+
 import html
 import re
 from html.parser import HTMLParser

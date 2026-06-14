@@ -1,8 +1,8 @@
 import asyncio
 import logging
 import os
-import sys
 import signal
+import sys
 from uuid import UUID
 
 logger = logging.getLogger(__name__)
@@ -22,10 +22,15 @@ class PortalManager:
             return
 
         proc = await asyncio.create_subprocess_exec(
-            sys.executable, "-m", "uvicorn",
-            "--factory", "app.portal_server:create_app",
-            "--host", "0.0.0.0",
-            "--port", str(portal.port),
+            sys.executable,
+            "-m",
+            "uvicorn",
+            "--factory",
+            "app.portal_server:create_app",
+            "--host",
+            "0.0.0.0",
+            "--port",
+            str(portal.port),
             env={
                 **os.environ,
                 "PORTAL_ID": str(portal.id),
@@ -58,7 +63,7 @@ class PortalManager:
             proc.send_signal(signal.SIGTERM)
             try:
                 await asyncio.wait_for(proc.wait(), timeout=5)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 proc.kill()
                 await proc.wait()
         except ProcessLookupError:

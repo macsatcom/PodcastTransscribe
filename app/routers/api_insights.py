@@ -1,15 +1,15 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import select, func, text
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.models.episode import Episode
 from app.models.podcast import Podcast
 from app.models.setting import Setting
-from app.models.topic import TopicCluster, EpisodeTopic
-from app.models.transcript import TranscriptChunk, Transcript
+from app.models.topic import EpisodeTopic, TopicCluster
+from app.models.transcript import Transcript, TranscriptChunk
 from app.services.clustering import run_clustering
 from app.services.openrouter import OpenRouterClient, get_api_key
 from app.services.rag import ask_question
@@ -40,18 +40,15 @@ async def list_topics(
             .where(Episode.podcast_id.in_(pid_list))
         )
     else:
-        query = (
-            select(
-                TopicCluster.id,
-                TopicCluster.label,
-                TopicCluster.description,
-                TopicCluster.source,
-                TopicCluster.representative_chunks,
-                TopicCluster.created_at,
-                func.count(EpisodeTopic.episode_id).label("episode_count"),
-            )
-            .outerjoin(EpisodeTopic, EpisodeTopic.topic_id == TopicCluster.id)
-        )
+        query = select(
+            TopicCluster.id,
+            TopicCluster.label,
+            TopicCluster.description,
+            TopicCluster.source,
+            TopicCluster.representative_chunks,
+            TopicCluster.created_at,
+            func.count(EpisodeTopic.episode_id).label("episode_count"),
+        ).outerjoin(EpisodeTopic, EpisodeTopic.topic_id == TopicCluster.id)
 
     query = query.group_by(TopicCluster.id).order_by(func.count(EpisodeTopic.episode_id).desc())
     result = await db.execute(query)
@@ -120,9 +117,7 @@ async def cross_series_comparison(
         row = {"topic_id": str(topic.id), "topic": topic.label, "podcasts": {}}
         for p in podcasts:
             total = (
-                await db.execute(
-                    select(func.count(Episode.id)).where(Episode.podcast_id == p.id)
-                )
+                await db.execute(select(func.count(Episode.id)).where(Episode.podcast_id == p.id))
             ).scalar_one() or 1
             matched = (
                 await db.execute(
@@ -176,6 +171,7 @@ async def create_topic(body: dict, db: AsyncSession = Depends(get_db)):
 
     model_setting = await db.get(Setting, "embedding_model")
     from app.services.embedder import DEFAULT_EMBEDDING_MODEL
+
     model = model_setting.value if model_setting else DEFAULT_EMBEDDING_MODEL
     api_key = await get_api_key(db)
 
@@ -195,10 +191,7 @@ async def create_topic(body: dict, db: AsyncSession = Depends(get_db)):
         .group_by(Episode.id)
     )
     for r in rows.all():
-        dist = await db.execute(
-            select(text(f"1.0 - ({embedding_str} <=> :avg_vec)::float"))
-            .params(avg_vec=r.avg_emb)
-        )
+        dist = await db.execute(select(text(f"1.0 - ({embedding_str} <=> :avg_vec)::float")).params(avg_vec=r.avg_emb))
         score = dist.scalar_one()
         if score and score > 0.65:
             db.add(EpisodeTopic(topic_id=topic.id, episode_id=r.id, score=round(score, 3)))

@@ -12,7 +12,9 @@ class SourceConfig(Base):
     __tablename__ = "source_configs"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    podcast_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("podcasts.id"), nullable=False, index=True)
+    podcast_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("podcasts.id"), nullable=False, index=True
+    )
     source_type: Mapped[str] = mapped_column(Text, nullable=False)
     url: Mapped[str] = mapped_column(Text, nullable=False)
     config_json: Mapped[dict] = mapped_column(JSONB, nullable=True)

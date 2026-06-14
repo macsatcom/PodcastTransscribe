@@ -1,7 +1,7 @@
 import asyncio
-import logging
 import io
-from datetime import datetime, timezone
+import logging
+from datetime import UTC, datetime
 from typing import BinaryIO
 from urllib.parse import urlparse
 
@@ -33,9 +33,7 @@ class ABSSourceAdapter(BaseSourceAdapter):
                 "User-Agent": "Mozilla/5.0 (compatible; TranscribeAndSearch/1.0)",
                 "Authorization": f"Bearer {self.api_key}",
             }
-            self._client = httpx.AsyncClient(
-                base_url=self.base_url, headers=headers, timeout=30
-            )
+            self._client = httpx.AsyncClient(base_url=self.base_url, headers=headers, timeout=30)
         return self._client
 
     async def close(self) -> None:
@@ -56,16 +54,12 @@ class ABSSourceAdapter(BaseSourceAdapter):
         data = response.json()
         return data.get("libraries", [])
 
-    async def get_library_items(
-        self, library_id: str, media_type: str | None = None
-    ) -> list[dict]:
+    async def get_library_items(self, library_id: str, media_type: str | None = None) -> list[dict]:
         client = self._get_client()
         params: dict[str, str] = {"minified": "1"}
         if media_type:
             params["filter"] = media_type
-        response = await client.get(
-            f"/api/libraries/{library_id}/items", params=params
-        )
+        response = await client.get(f"/api/libraries/{library_id}/items", params=params)
         response.raise_for_status()
         data = response.json()
         return data.get("results", [])
@@ -79,9 +73,7 @@ class ABSSourceAdapter(BaseSourceAdapter):
         response.raise_for_status()
         return response.json()
 
-    async def get_play_info(
-        self, item_id: str, episode_id: str | None = None
-    ) -> dict:
+    async def get_play_info(self, item_id: str, episode_id: str | None = None) -> dict:
         client = self._get_client()
         if episode_id:
             url = f"/api/items/{item_id}/play/{episode_id}"
@@ -102,9 +94,7 @@ class ABSSourceAdapter(BaseSourceAdapter):
 
     async def check_new_episodes(self, podcast_item_id: str) -> None:
         client = self._get_client()
-        response = await client.get(
-            f"/api/podcasts/{podcast_item_id}/checknew", params={"limit": "0"}
-        )
+        response = await client.get(f"/api/podcasts/{podcast_item_id}/checknew", params={"limit": "0"})
         response.raise_for_status()
 
     async def discover_new(self, abs_item_id: str) -> list[EpisodeMetadata]:
@@ -116,9 +106,7 @@ class ABSSourceAdapter(BaseSourceAdapter):
         else:
             return await self._discover_book_chapters(abs_item_id, item)
 
-    async def _discover_podcast_episodes(
-        self, abs_item_id: str, item: dict
-    ) -> list[EpisodeMetadata]:
+    async def _discover_podcast_episodes(self, abs_item_id: str, item: dict) -> list[EpisodeMetadata]:
         await self.check_new_episodes(abs_item_id)
         item = await self.get_item(abs_item_id, expanded=True)
 
@@ -127,7 +115,6 @@ class ABSSourceAdapter(BaseSourceAdapter):
         if not episodes:
             return []
 
-        metadata = media.get("metadata", {})
         cover_url = f"{self.base_url}/api/items/{abs_item_id}/cover"
 
         result: list[EpisodeMetadata] = []
@@ -157,28 +144,26 @@ class ABSSourceAdapter(BaseSourceAdapter):
             published = None
             published_at = ep.get("publishedAt")
             if published_at:
-                published = datetime.fromtimestamp(
-                    published_at / 1000, tz=timezone.utc
-                )
+                published = datetime.fromtimestamp(published_at / 1000, tz=UTC)
 
-            result.append(EpisodeMetadata(
-                guid=str(ep.get("id", "")),
-                title=ep.get("title", ""),
-                description=ep.get("description"),
-                audio_url=audio_url,
-                duration_seconds=ep.get("duration"),
-                published_at=published,
-                cover_url=cover_url,
-                abs_item_id=abs_item_id,
-                abs_episode_id=ep.get("id"),
-                media_type="podcast",
-            ))
+            result.append(
+                EpisodeMetadata(
+                    guid=str(ep.get("id", "")),
+                    title=ep.get("title", ""),
+                    description=ep.get("description"),
+                    audio_url=audio_url,
+                    duration_seconds=ep.get("duration"),
+                    published_at=published,
+                    cover_url=cover_url,
+                    abs_item_id=abs_item_id,
+                    abs_episode_id=ep.get("id"),
+                    media_type="podcast",
+                )
+            )
 
         return result
 
-    async def _discover_book_chapters(
-        self, abs_item_id: str, item: dict
-    ) -> list[EpisodeMetadata]:
+    async def _discover_book_chapters(self, abs_item_id: str, item: dict) -> list[EpisodeMetadata]:
         play_info = await self.get_play_info(abs_item_id)
         audio_tracks = play_info.get("audioTracks", [])
         if not audio_tracks:
@@ -196,7 +181,7 @@ class ABSSourceAdapter(BaseSourceAdapter):
         published = None
         added_at = item.get("addedAt")
         if added_at:
-            published = datetime.fromtimestamp(added_at / 1000, tz=timezone.utc)
+            published = datetime.fromtimestamp(added_at / 1000, tz=UTC)
 
         cover_url = f"{self.base_url}/api/items/{abs_item_id}/cover"
 
@@ -224,18 +209,20 @@ class ABSSourceAdapter(BaseSourceAdapter):
             if start is not None and end is not None:
                 duration = int(end - start)
 
-            result.append(EpisodeMetadata(
-                guid=f"{abs_item_id}_{i}",
-                title=f"{book_title} - {chapter_title}",
-                description=metadata.get("description"),
-                audio_url=audio_url,
-                duration_seconds=duration,
-                published_at=published,
-                cover_url=cover_url,
-                abs_item_id=abs_item_id,
-                chapter_index=i,
-                media_type="book",
-            ))
+            result.append(
+                EpisodeMetadata(
+                    guid=f"{abs_item_id}_{i}",
+                    title=f"{book_title} - {chapter_title}",
+                    description=metadata.get("description"),
+                    audio_url=audio_url,
+                    duration_seconds=duration,
+                    published_at=published,
+                    cover_url=cover_url,
+                    abs_item_id=abs_item_id,
+                    chapter_index=i,
+                    media_type="book",
+                )
+            )
 
         return result
 
@@ -279,9 +266,7 @@ class ABSSourceAdapter(BaseSourceAdapter):
                     raise
                 await asyncio.sleep(2)
 
-    async def get_stream_url(
-        self, item_id: str, episode_id: str | None = None
-    ) -> str:
+    async def get_stream_url(self, item_id: str, episode_id: str | None = None) -> str:
         play_info = await self.get_play_info(item_id, episode_id)
         audio_tracks = play_info.get("audioTracks", [])
         if not audio_tracks:

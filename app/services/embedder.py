@@ -13,6 +13,7 @@ Targets:
 - ~40-word overlap (down from 50, scaled to the smaller chunk size). Keeps
   context across chunk boundaries without too much duplication.
 """
+
 import logging
 from dataclasses import dataclass
 
@@ -31,6 +32,7 @@ CHUNK_OVERLAP = 40
 @dataclass
 class TextChunk:
     """One indexable chunk with optional audio-time alignment."""
+
     text: str
     start_time: float | None = None
     end_time: float | None = None
@@ -71,11 +73,13 @@ def chunk_segments(
         if text:
             start_time = chunk_segs[0].get("start")
             end_time = chunk_segs[-1].get("end")
-            chunks.append(TextChunk(
-                text=text,
-                start_time=float(start_time) if start_time is not None else None,
-                end_time=float(end_time) if end_time is not None else None,
-            ))
+            chunks.append(
+                TextChunk(
+                    text=text,
+                    start_time=float(start_time) if start_time is not None else None,
+                    end_time=float(end_time) if end_time is not None else None,
+                )
+            )
 
         if j >= n:
             break

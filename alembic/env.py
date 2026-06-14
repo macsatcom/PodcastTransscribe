@@ -1,12 +1,12 @@
 import asyncio
 from logging.config import fileConfig
 
-from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from app.database import Base
+from alembic import context
 from app.config import settings
+from app.database import Base
 
 # Import all models so Base.metadata is populated for autogenerate.
 from app.models import episode, podcast, portal, setting, source_config, topic, transcript  # noqa: F401
