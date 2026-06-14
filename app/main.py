@@ -25,6 +25,7 @@ from app.routers import (
     api_queue,
     api_search,
     api_settings,
+    health,
     ui,
 )
 from app.services.abs_poller import poll_abs_libraries
@@ -207,3 +208,4 @@ app.include_router(ui.router)
 app.include_router(api_portals.router)
 app.include_router(api_abs.router)
 app.include_router(api_insights.router)
+app.include_router(health.router)
