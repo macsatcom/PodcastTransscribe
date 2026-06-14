@@ -104,7 +104,7 @@ async def search_fts(
     lang = _safe_lang(language)
 
     conditions = [
-        "to_tsvector(CAST(:lang AS regconfig), ft.full_text) " "@@ phraseto_tsquery(CAST(:lang AS regconfig), :query)"
+        "to_tsvector(CAST(:lang AS regconfig), ft.full_text) @@ phraseto_tsquery(CAST(:lang AS regconfig), :query)"
     ]
     params: dict = {"lang": lang, "query": query, "limit": limit}
 

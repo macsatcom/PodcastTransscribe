@@ -124,8 +124,9 @@ async def _run_alembic_upgrade() -> None:
     """
     import asyncio
 
-    from alembic import command
     from alembic.config import Config
+
+    from alembic import command
 
     def _do_upgrade() -> None:
         cfg = Config("alembic.ini")
