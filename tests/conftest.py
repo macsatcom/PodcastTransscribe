@@ -1,31 +1,58 @@
-import pytest
-import pytest_asyncio
-from httpx import ASGITransport, AsyncClient
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+import os
 
-from app.database import Base, get_db
-from app.main import app
+# Point the whole process at the test database BEFORE importing any app module,
+# so app.config.settings (a module-level singleton) is built against it.
+os.environ.setdefault(
+    "DATABASE_URL",
+    "postgresql+asyncpg://podcast:podcast@localhost/podcast_transcription_search_test",
+)
 
-TEST_DATABASE_URL = "postgresql+asyncpg://podcast:podcast@localhost/podcast_transcription_search_test"
+import asyncio  # noqa: E402
+
+import pytest  # noqa: E402
+import pytest_asyncio  # noqa: E402
+from alembic import command  # noqa: E402
+from alembic.config import Config  # noqa: E402
+from httpx import ASGITransport, AsyncClient  # noqa: E402
+from sqlalchemy import text  # noqa: E402
+from sqlalchemy.ext.asyncio import async_sessionmaker  # noqa: E402
+
+from app.config import settings  # noqa: E402
+from app.database import get_db  # noqa: E402
+from app.main import app  # noqa: E402
 
 
-@pytest.fixture(scope="session")
-def event_loop():
-    import asyncio
+def _run_alembic_upgrade_head() -> None:
+    """Run `alembic upgrade head` against the test DB in a no-loop thread.
 
-    loop = asyncio.new_event_loop()
-    yield loop
-    loop.close()
+    env.py uses asyncio.run() internally, so this must NOT run inside a
+    running event loop — hence it is invoked via asyncio.to_thread by the
+    fixture below.
+    """
+    cfg = Config("alembic.ini")
+    command.upgrade(cfg, "head")
 
 
 @pytest_asyncio.fixture(scope="session")
 async def test_engine():
-    engine = create_async_engine(TEST_DATABASE_URL)
+    # Build a fresh schema using the REAL migration path (not create_all),
+    # so the migrations themselves are exercised on every run.
+    from app.database import engine
+
+    # Drop everything first for a clean slate (CREATE EXTENSION is idempotent).
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+        await conn.execute(text("DROP SCHEMA public CASCADE"))
+        await conn.execute(text("CREATE SCHEMA public"))
+        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+
+    await asyncio.to_thread(_run_alembic_upgrade_head)
+
     yield engine
+
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
+        await conn.execute(text("DROP SCHEMA public CASCADE"))
+        await conn.execute(text("CREATE SCHEMA public"))
     await engine.dispose()
 
 
