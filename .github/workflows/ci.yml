@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      db:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_DB: podcast_transcription_search_test
+          POSTGRES_USER: podcast
+          POSTGRES_PASSWORD: podcast
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U podcast -d podcast_transcription_search_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql+asyncpg://podcast:podcast@localhost:5432/podcast_transcription_search_test
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -e '.[dev]'
+
+      - name: Ruff lint (blocking)
+        run: ruff check .
+
+      - name: Ruff format check (blocking)
+        run: ruff format --check .
+
+      - name: Mypy (advisory)
+        run: mypy app
+        continue-on-error: true
+
+      - name: Pytest with coverage (blocking)
+        run: pytest --cov=app --cov-report=term-missing -v
