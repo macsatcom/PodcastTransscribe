@@ -9,6 +9,7 @@ from sqlalchemy import func, select, text, update
 
 from app.config import settings
 from app.database import Base, async_session, engine
+from app.logging_config import setup_logging
 from app.models.episode import Episode
 from app.models.podcast import Podcast
 from app.models.portal import Portal
@@ -31,7 +32,7 @@ from app.services.clustering import run_clustering
 from app.services.queue_manager import episode_queue
 from app.services.rss_poller import poll_all_feeds
 
-logging.basicConfig(level=logging.INFO, format="%(levelname)s [%(name)s] %(message)s")
+setup_logging()
 logger = logging.getLogger(__name__)
 
 scheduler = AsyncIOScheduler()
