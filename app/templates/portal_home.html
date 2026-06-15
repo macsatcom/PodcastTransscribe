@@ -552,6 +552,15 @@
         return `${m}m`;
       },
 
+      episodeSummary(ep) {
+        if (ep?.summary_excerpt && ep.summary_excerpt.trim()) return ep.summary_excerpt;
+        if (ep?.description && ep.description.trim()) {
+          const d = ep.description.trim();
+          return d.length > 220 ? d.slice(0, 220) + '\u2026' : d;
+        }
+        return 'No summary available.';
+      },
+
       async askQuestion() {
         if (!this.ragQuestion.trim()) return;
         this.ragLoading = true;
