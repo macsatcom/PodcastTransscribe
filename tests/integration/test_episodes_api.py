@@ -57,3 +57,45 @@ async def test_episode_list_limit_caps_results(client, db_session):
     resp = await client.get(f"/api/episodes?podcast_id={podcast.id}&limit=3")
     assert resp.status_code == 200
     assert len(resp.json()) == 3
+
+
+@pytest.mark.asyncio
+async def test_episode_list_filters_by_podcast_ids_and_returns_title(client, db_session):
+    p1 = Podcast(id=uuid.uuid4(), title="Portal A")
+    p2 = Podcast(id=uuid.uuid4(), title="Portal B")
+    db_session.add_all([p1, p2])
+    await db_session.flush()
+
+    e1 = Episode(
+        id=uuid.uuid4(),
+        podcast_id=p1.id,
+        guid="p1-1",
+        title="A-1",
+        audio_url="https://example.com/a1.mp3",
+        published_at=datetime(2024, 3, 2, tzinfo=UTC),
+        status="done",
+    )
+    e2 = Episode(
+        id=uuid.uuid4(),
+        podcast_id=p2.id,
+        guid="p2-1",
+        title="B-1",
+        audio_url="https://example.com/b1.mp3",
+        published_at=datetime(2024, 3, 1, tzinfo=UTC),
+        status="done",
+    )
+    db_session.add_all([e1, e2])
+    await db_session.flush()
+
+    resp = await client.get(f"/api/episodes?podcast_ids={p1.id}&status=done")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert [e["id"] for e in data] == [str(e1.id)]
+    assert data[0]["podcast_title"] == "Portal A"
+
+
+@pytest.mark.asyncio
+async def test_episode_list_rejects_invalid_podcast_ids(client):
+    resp = await client.get("/api/episodes?podcast_ids=not-a-uuid")
+    assert resp.status_code == 422
+    assert "Invalid UUID in podcast_ids" in resp.json().get("detail", "")

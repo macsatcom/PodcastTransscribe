@@ -1,27 +1,67 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.models.episode import Episode
+from app.models.podcast import Podcast
 from app.models.transcript import Transcript
 from app.services.queue_manager import episode_queue
 
 router = APIRouter(prefix="/api/episodes", tags=["episodes"])
 
 
+def _serialize_episode(e: Episode, queued_ids: set[str], podcast_title: str | None = None) -> dict:
+    return {
+        "id": str(e.id),
+        "podcast_id": str(e.podcast_id),
+        "podcast_title": podcast_title,
+        "title": e.title,
+        "description": e.description,
+        "duration_seconds": e.duration_seconds,
+        "published_at": e.published_at.isoformat() if e.published_at else None,
+        "status": e.status,
+        "error_message": e.error_message,
+        "model_used": e.model_used,
+        "processing_seconds": e.processing_seconds,
+        "cost": e.cost,
+        "media_type": e.media_type,
+        "abs_item_id": e.abs_item_id,
+        "abs_episode_id": e.abs_episode_id,
+        "chapter_index": e.chapter_index,
+        "queued": str(e.id) in queued_ids,
+    }
+
+
 @router.get("")
 async def list_episodes(
     podcast_id: UUID | None = None,
+    podcast_ids: str | None = None,
     status: str | None = None,
     media_type: str | None = None,
     limit: int = Query(default=200, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
     db: AsyncSession = Depends(get_db),
 ):
-    query = select(Episode)
+    ids = []
+    if podcast_ids is not None and podcast_ids.strip() != "":
+        try:
+            ids = [UUID(item.strip()) for item in podcast_ids.split(",") if item.strip()]
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail="Invalid UUID in podcast_ids") from exc
+
+    use_podcast_ids = len(ids) > 0
+    if use_podcast_ids:
+        query = (
+            select(Episode, Podcast.title.label("podcast_title"))
+            .join(Podcast, Podcast.id == Episode.podcast_id)
+            .where(Episode.podcast_id.in_(ids))
+        )
+    else:
+        query = select(Episode)
+
     if podcast_id:
         query = query.where(Episode.podcast_id == podcast_id)
     if status:
@@ -36,29 +76,14 @@ async def list_episodes(
         query = query.offset(offset)
     query = query.limit(limit)
     result = await db.execute(query)
-    episodes = result.scalars().all()
     queued_ids = {str(eid) for eid in episode_queue.get_queued_ids()}
-    return [
-        {
-            "id": str(e.id),
-            "podcast_id": str(e.podcast_id),
-            "title": e.title,
-            "description": e.description,
-            "duration_seconds": e.duration_seconds,
-            "published_at": e.published_at.isoformat() if e.published_at else None,
-            "status": e.status,
-            "error_message": e.error_message,
-            "model_used": e.model_used,
-            "processing_seconds": e.processing_seconds,
-            "cost": e.cost,
-            "media_type": e.media_type,
-            "abs_item_id": e.abs_item_id,
-            "abs_episode_id": e.abs_episode_id,
-            "chapter_index": e.chapter_index,
-            "queued": str(e.id) in queued_ids,
-        }
-        for e in episodes
-    ]
+
+    if use_podcast_ids:
+        rows = result.all()
+        return [_serialize_episode(row.Episode, queued_ids, row.podcast_title) for row in rows]
+
+    episodes = result.scalars().all()
+    return [_serialize_episode(e, queued_ids, None) for e in episodes]
 
 
 @router.get("/{episode_id}")
