@@ -160,6 +160,7 @@
       <div class="tab-bar">
         <button class="tab-btn" :class="tab==='search' ? 'active' : ''" @click="setTab('search')">Search</button>
         <button class="tab-btn" :class="tab==='insights' ? 'active' : ''" @click="setTab('insights')">Insights</button>
+        <button class="tab-btn" :class="tab==='episodes' ? 'active' : ''" @click="setTab('episodes')">Episodes</button>
       </div>
 
       <!-- ───────── SEARCH TAB ───────── -->
@@ -289,6 +290,51 @@
         </div>
       </div>
 
+      <!-- ───────── EPISODES TAB ───────── -->
+      <div x-show="tab==='episodes'" x-cloak>
+        <div x-show="episodesLoading && episodes.length === 0" style="color:var(--text-dim);padding:32px;text-align:center;">
+          <span class="spinner"></span> Loading episodes...
+        </div>
+        <div x-show="episodesError && episodes.length === 0" class="empty">
+          <div>Could not load episodes.</div>
+          <button @click="loadEpisodes()" class="btn btn-ghost btn-sm" style="margin-top:10px;">Retry</button>
+        </div>
+        <div x-show="!episodesLoading && episodes.length === 0 && episodesLoaded" class="empty">
+          No transcribed episodes yet.
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <template x-for="ep in episodes" :key="ep.id">
+            <a :href="'/episodes/' + ep.id" class="result-card">
+              <div class="result-header">
+                <div class="result-body">
+                  <div class="result-title-row">
+                    <span class="result-title" x-text="ep.title"></span>
+                  </div>
+                  <div class="result-meta" style="margin-top:4px;">
+                    <span x-text="ep.podcast_title" style="color:var(--text-secondary);"></span>
+                    <template x-if="ep.published_at">
+                      <span x-text="' · ' + new Date(ep.published_at).toLocaleDateString('da-DK', {year:'numeric',month:'short',day:'numeric'})"></span>
+                    </template>
+                    <template x-if="ep.duration_seconds">
+                      <span x-text="' · ' + formatDuration(ep.duration_seconds)"></span>
+                    </template>
+                  </div>
+                  <template x-if="ep.summary_excerpt">
+                    <div class="result-snippet" x-text="ep.summary_excerpt" style="margin-top:6px;"></div>
+                  </template>
+                </div>
+              </div>
+            </a>
+          </template>
+        </div>
+        <div x-show="episodesHasMore" style="text-align:center;margin-top:20px;">
+          <button @click="loadEpisodes()" :disabled="episodesLoading" class="btn btn-ghost btn-sm">
+            <span x-show="episodesLoading"><span class="spinner"></span></span>
+            <span x-text="episodesLoading ? 'Loading...' : 'Load more'"></span>
+          </button>
+        </div>
+      </div>
+
       <!-- Episode modal (Topics) -->
       <div x-show="modal" x-cloak class="modal-overlay">
         <div class="modal">
@@ -349,6 +395,10 @@
       keyword: '', natural: '', searchLoading: false, searched: false,
       results: [], searchMeta: { threshold: null, model: null, candidate_count: 0 },
 
+      // Episodes state
+      episodes: [], episodesLoaded: false, episodesOffset: 0,
+      episodesHasMore: false, episodesLoading: false, episodesError: false,
+
       // Insights state
       topics: [], topicsLoading: false,
       ragQuestion: '', ragAnswer: '', ragSources: [], ragLoading: false, ragLowConfidence: false,
@@ -357,12 +407,14 @@
       async init() {
         const hash = window.location.hash.replace('#', '');
         if (hash === 'insights') { this.tab = 'insights'; await this.loadTopics(); }
+        if (hash === 'episodes') { this.tab = 'episodes'; await this.loadEpisodes(); }
       },
 
       setTab(name) {
         this.tab = name;
         history.replaceState(null, '', '#' + name);
         if (name === 'insights' && this.topics.length === 0) this.loadTopics();
+        if (name === 'episodes' && !this.episodesLoaded) this.loadEpisodes();
       },
 
       askAbout(r) {
@@ -422,6 +474,47 @@
         this.modalEpisodes = await r.json();
         this.modalTopic = t;
         this.modal = true;
+      },
+
+      async loadEpisodes() {
+        if (this.episodesLoading) return;
+        this.episodesLoading = true;
+        this.episodesError = false;
+        const PAGE = 50;
+        try {
+          const ids = (this.portal.podcast_ids || []).join(',');
+          const params = new URLSearchParams({ status: 'done', limit: PAGE, offset: this.episodesOffset });
+          if (ids) params.set('podcast_ids', ids);
+          const r = await fetch('/api/episodes?' + params);
+          if (!r.ok) throw new Error(`Failed loading episodes (${r.status})`);
+          const data = await r.json();
+          const page = Array.isArray(data)
+            ? data.map(ep => ({
+              ...ep,
+              summary_excerpt: ep.transcript?.summary
+                ? ep.transcript.summary.slice(0, 150) + (ep.transcript.summary.length > 150 ? '\u2026' : '')
+                : null,
+            }))
+            : [];
+          this.episodes = this.episodes.concat(page);
+          this.episodesOffset += page.length;
+          this.episodesHasMore = page.length === PAGE;
+        } catch (e) {
+          console.error(e);
+          this.episodesError = true;
+          this.episodesLoading = false;
+          return;
+        }
+        this.episodesLoading = false;
+        this.episodesLoaded = true;
+      },
+
+      formatDuration(secs) {
+        if (!secs) return '';
+        const h = Math.floor(secs / 3600);
+        const m = Math.floor((secs % 3600) / 60);
+        if (h > 0) return `${h}t ${m}m`;
+        return `${m}m`;
       },
 
       async askQuestion() {
