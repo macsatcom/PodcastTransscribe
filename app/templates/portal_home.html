@@ -345,28 +345,20 @@
         <div x-show="!episodesLoading && episodes.length === 0 && episodesLoaded" class="empty">
           No transcribed episodes yet.
         </div>
-        <div style="display:flex;flex-direction:column;gap:10px;">
+        <div class="episodes-list">
           <template x-for="ep in episodes" :key="ep.id">
-            <a :href="'/episodes/' + ep.id" class="result-card">
-              <div class="result-header">
-                <div class="result-body">
-                  <div class="result-title-row">
-                    <span class="result-title" x-text="ep.title"></span>
-                  </div>
-                  <div class="result-meta" style="margin-top:4px;">
-                    <span x-text="ep.podcast_title" style="color:var(--text-secondary);"></span>
-                    <template x-if="ep.published_at">
-                      <span x-text="' · ' + new Date(ep.published_at).toLocaleDateString('da-DK', {year:'numeric',month:'short',day:'numeric'})"></span>
-                    </template>
-                    <template x-if="ep.duration_seconds">
-                      <span x-text="' · ' + formatDuration(ep.duration_seconds)"></span>
-                    </template>
-                  </div>
-                  <template x-if="ep.summary_excerpt">
-                    <div class="result-snippet" x-text="ep.summary_excerpt" style="margin-top:6px;"></div>
-                  </template>
-                </div>
+            <a :href="'/episodes/' + ep.id" class="episode-row">
+              <div class="episode-head">
+                <span class="episode-title" x-text="ep.title"></span>
+                <span class="episode-meta">
+                  <span x-show="ep.published_at" x-text="new Date(ep.published_at).toLocaleDateString('da-DK', {year:'numeric',month:'short',day:'numeric'})"></span>
+                  <span x-show="ep.duration_seconds" x-text="(ep.published_at ? ' · ' : '') + formatDuration(ep.duration_seconds)"></span>
+                </span>
               </div>
+
+              <div class="episode-badge" x-text="ep.podcast_title || 'Podcast'"></div>
+
+              <div class="episode-summary line-clamp-4" x-text="episodeSummary(ep)"></div>
             </a>
           </template>
         </div>
