@@ -51,17 +51,39 @@ async def test_run_clustering_skips_when_already_running(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_refresh_endpoint_is_fire_and_forget(client, monkeypatch):
+    import asyncio
+    from types import SimpleNamespace
+
     import app.routers.api_insights as api_insights
 
+    observed = {"inline_awaited": False}
+    scheduled = {"count": 0, "coro": None}
+
     async def fake_run():
-        return None
+        observed["inline_awaited"] = True
+        await asyncio.sleep(0)
+
+    def fake_create_task(coro):
+        scheduled["count"] += 1
+        scheduled["coro"] = coro
+        done = asyncio.get_running_loop().create_future()
+        done.set_result(None)
+        return done
 
     monkeypatch.setattr(api_insights, "run_clustering", fake_run)
+    monkeypatch.setattr(api_insights, "asyncio", SimpleNamespace(create_task=fake_create_task))
 
     response = await client.post("/api/insights/clusters/refresh")
 
-    assert response.status_code == 200
-    assert response.json() == {"status": "started"}
+    try:
+        assert response.status_code == 200
+        assert response.json() == {"status": "started"}
+        assert scheduled["count"] == 1
+        assert scheduled["coro"] is not None
+        assert observed["inline_awaited"] is False
+    finally:
+        if scheduled["coro"] is not None:
+            scheduled["coro"].close()
 
 
 @pytest.mark.asyncio
