@@ -45,6 +45,16 @@ REPRESENTATIVES_PER_CLUSTER = 5
 LABEL_CONTEXT_CHARS = 2400
 
 
+def compute_clusters(matrix: np.ndarray, min_size: int) -> np.ndarray:
+    hdbscan = HDBSCAN(
+        min_cluster_size=min_size,
+        metric="euclidean",
+        algorithm="brute",
+        copy=True,
+    )
+    return hdbscan.fit_predict(matrix)
+
+
 async def run_clustering():
     async with async_session() as session:
         model_setting = await session.get(Setting, "embedding_model")
@@ -99,8 +109,7 @@ async def run_clustering():
 
         # Adaptive min_cluster_size — sqrt(N)/4 floored at ABSOLUTE_MIN.
         min_size = max(ABSOLUTE_MIN, int(math.sqrt(len(matrix)) / 4))
-        hdbscan = HDBSCAN(min_cluster_size=min_size, metric="euclidean")
-        labels = hdbscan.fit_predict(matrix)
+        labels = compute_clusters(matrix, min_size)
 
         noise = int((labels == -1).sum())
         valid_label_set = sorted(set(int(label) for label in labels) - {-1})
