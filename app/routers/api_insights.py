@@ -1,3 +1,4 @@
+import asyncio
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
@@ -10,7 +11,7 @@ from app.models.podcast import Podcast
 from app.models.setting import Setting
 from app.models.topic import EpisodeTopic, TopicCluster
 from app.models.transcript import Transcript, TranscriptChunk
-from app.services.clustering import run_clustering
+from app.services.clustering import is_clustering_running, run_clustering
 from app.services.openrouter import OpenRouterClient, get_api_key
 from app.services.rag import ask_question
 
@@ -159,8 +160,10 @@ async def rag_query(
 
 @router.post("/clusters/refresh")
 async def refresh_clusters():
-    await run_clustering()
-    return {"status": "clustering started"}
+    if is_clustering_running():
+        return {"status": "already_running"}
+    asyncio.create_task(run_clustering())
+    return {"status": "started"}
 
 
 @router.post("/topics/create")

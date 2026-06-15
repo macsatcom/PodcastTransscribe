@@ -47,3 +47,38 @@ async def test_run_clustering_skips_when_already_running(monkeypatch):
         clustering._clustering_lock.release()
 
     assert clustering.is_clustering_running() is False
+
+
+@pytest.mark.asyncio
+async def test_refresh_endpoint_is_fire_and_forget(client, monkeypatch):
+    import app.routers.api_insights as api_insights
+
+    async def fake_run():
+        return None
+
+    monkeypatch.setattr(api_insights, "run_clustering", fake_run)
+
+    response = await client.post("/api/insights/clusters/refresh")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "started"}
+
+
+@pytest.mark.asyncio
+async def test_refresh_endpoint_reports_already_running(client, monkeypatch):
+    import app.routers.api_insights as api_insights
+
+    monkeypatch.setattr(api_insights, "is_clustering_running", lambda: True)
+
+    calls = {"n": 0}
+
+    async def fake_run():
+        calls["n"] += 1
+
+    monkeypatch.setattr(api_insights, "run_clustering", fake_run)
+
+    response = await client.post("/api/insights/clusters/refresh")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "already_running"}
+    assert calls["n"] == 0
