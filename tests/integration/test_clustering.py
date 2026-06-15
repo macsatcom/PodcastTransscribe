@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 
 import numpy as np
 import pytest
-from sqlalchemy import select
+from sqlalchemy import delete, func, select
 
 import app.services.clustering as clustering
 from app.models.episode import Episode
@@ -124,6 +124,8 @@ async def test_run_clustering_persists_topics(db_session, monkeypatch):
     monkeypatch.setattr(clustering, "_generate_label", fake_generate_label)
 
     model_setting = await db_session.get(Setting, "embedding_model")
+    setting_preexisted = model_setting is not None
+    previous_setting_value = model_setting.value if model_setting else None
     if model_setting is None:
         db_session.add(Setting(key="embedding_model", value=DEFAULT_EMBEDDING_MODEL))
     else:
@@ -184,12 +186,44 @@ async def test_run_clustering_persists_topics(db_session, monkeypatch):
 
     await db_session.commit()
 
-    await clustering.run_clustering()
+    baseline_auto_topic_count = await db_session.scalar(
+        select(func.count()).select_from(TopicCluster).where(TopicCluster.source == "auto")
+    )
+    baseline_episode_topic_count = await db_session.scalar(
+        select(func.count()).select_from(EpisodeTopic).where(EpisodeTopic.episode_id == episode.id)
+    )
+    baseline_auto_topic_count = baseline_auto_topic_count or 0
+    baseline_episode_topic_count = baseline_episode_topic_count or 0
 
-    topics = (
-        await db_session.execute(select(TopicCluster).where(TopicCluster.source == "auto"))
-    ).scalars().all()
-    assert len(topics) >= 1
+    created_topic_ids: list[uuid.UUID] = []
+    try:
+        await clustering.run_clustering()
 
-    episode_topics = (await db_session.execute(select(EpisodeTopic))).scalars().all()
-    assert len(episode_topics) >= 1
+        auto_topics = (
+            await db_session.execute(select(TopicCluster).where(TopicCluster.source == "auto"))
+        ).scalars().all()
+        created_topic_ids = [topic.id for topic in auto_topics]
+
+        auto_topic_count_after = len(auto_topics)
+        episode_topic_count_after = await db_session.scalar(
+            select(func.count()).select_from(EpisodeTopic).where(EpisodeTopic.episode_id == episode.id)
+        )
+        episode_topic_count_after = episode_topic_count_after or 0
+
+        assert auto_topic_count_after > baseline_auto_topic_count
+        assert episode_topic_count_after > baseline_episode_topic_count
+    finally:
+        await db_session.execute(delete(EpisodeTopic).where(EpisodeTopic.episode_id == episode.id))
+        if created_topic_ids:
+            await db_session.execute(delete(TopicCluster).where(TopicCluster.id.in_(created_topic_ids)))
+        await db_session.execute(delete(TranscriptChunk).where(TranscriptChunk.transcript_id == transcript.id))
+        await db_session.execute(delete(Transcript).where(Transcript.id == transcript.id))
+        await db_session.execute(delete(Episode).where(Episode.id == episode.id))
+        await db_session.execute(delete(Podcast).where(Podcast.id == podcast.id))
+        if setting_preexisted:
+            restored_setting = await db_session.get(Setting, "embedding_model")
+            if restored_setting is not None:
+                restored_setting.value = previous_setting_value
+        else:
+            await db_session.execute(delete(Setting).where(Setting.key == "embedding_model"))
+        await db_session.commit()
