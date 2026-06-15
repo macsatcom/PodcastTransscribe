@@ -95,6 +95,101 @@ async def test_episode_list_filters_by_podcast_ids_and_returns_title(client, db_
 
 
 @pytest.mark.asyncio
+async def test_episode_list_filters_done_status_with_podcast_ids(client, db_session):
+    p1 = Podcast(id=uuid.uuid4(), title="Status Portal A")
+    p2 = Podcast(id=uuid.uuid4(), title="Status Portal B")
+    p3 = Podcast(id=uuid.uuid4(), title="Status Portal C")
+    db_session.add_all([p1, p2, p3])
+    await db_session.flush()
+
+    done_1 = Episode(
+        id=uuid.uuid4(),
+        podcast_id=p1.id,
+        guid="status-a-done",
+        title="A done",
+        audio_url="https://example.com/a-done.mp3",
+        published_at=datetime(2024, 4, 3, tzinfo=UTC),
+        status="done",
+    )
+    db_session.add(done_1)
+    db_session.add(
+        Episode(
+            id=uuid.uuid4(),
+            podcast_id=p1.id,
+            guid="status-a-new",
+            title="A new",
+            audio_url="https://example.com/a-new.mp3",
+            published_at=datetime(2024, 4, 2, tzinfo=UTC),
+            status="new",
+        )
+    )
+    done_2 = Episode(
+        id=uuid.uuid4(),
+        podcast_id=p2.id,
+        guid="status-b-done",
+        title="B done",
+        audio_url="https://example.com/b-done.mp3",
+        published_at=datetime(2024, 4, 1, tzinfo=UTC),
+        status="done",
+    )
+    db_session.add(done_2)
+    db_session.add(
+        Episode(
+            id=uuid.uuid4(),
+            podcast_id=p3.id,
+            guid="status-c-done",
+            title="C done",
+            audio_url="https://example.com/c-done.mp3",
+            published_at=datetime(2024, 3, 31, tzinfo=UTC),
+            status="done",
+        )
+    )
+    await db_session.flush()
+
+    resp = await client.get(f"/api/episodes?podcast_ids={p1.id},{p2.id}&status=done")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert [e["id"] for e in data] == [str(done_1.id), str(done_2.id)]
+    assert [e["podcast_title"] for e in data] == ["Status Portal A", "Status Portal B"]
+
+
+@pytest.mark.asyncio
+async def test_episode_list_singular_podcast_id_keeps_backward_compat_response(client, db_session):
+    podcast = Podcast(id=uuid.uuid4(), title="Legacy Podcast")
+    db_session.add(podcast)
+    await db_session.flush()
+
+    done_episode = Episode(
+        id=uuid.uuid4(),
+        podcast_id=podcast.id,
+        guid="legacy-done",
+        title="Legacy done",
+        audio_url="https://example.com/legacy-done.mp3",
+        published_at=datetime(2024, 5, 2, tzinfo=UTC),
+        status="done",
+    )
+    db_session.add(done_episode)
+    db_session.add(
+        Episode(
+            id=uuid.uuid4(),
+            podcast_id=podcast.id,
+            guid="legacy-new",
+            title="Legacy new",
+            audio_url="https://example.com/legacy-new.mp3",
+            published_at=datetime(2024, 5, 1, tzinfo=UTC),
+            status="new",
+        )
+    )
+    await db_session.flush()
+
+    resp = await client.get(f"/api/episodes?podcast_id={podcast.id}&status=done")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert [e["id"] for e in data] == [str(done_episode.id)]
+    assert data[0]["podcast_title"] is None
+
+
+@pytest.mark.asyncio
 async def test_episode_list_rejects_invalid_podcast_ids(client):
     resp = await client.get("/api/episodes?podcast_ids=not-a-uuid")
     assert resp.status_code == 422
