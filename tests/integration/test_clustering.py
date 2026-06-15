@@ -186,31 +186,33 @@ async def test_run_clustering_persists_topics(db_session, monkeypatch):
 
     await db_session.commit()
 
-    baseline_auto_topic_count = await db_session.scalar(
-        select(func.count()).select_from(TopicCluster).where(TopicCluster.source == "auto")
-    )
     baseline_episode_topic_count = await db_session.scalar(
         select(func.count()).select_from(EpisodeTopic).where(EpisodeTopic.episode_id == episode.id)
     )
-    baseline_auto_topic_count = baseline_auto_topic_count or 0
     baseline_episode_topic_count = baseline_episode_topic_count or 0
 
     created_topic_ids: list[uuid.UUID] = []
     try:
         await clustering.run_clustering()
 
-        auto_topics = (
-            await db_session.execute(select(TopicCluster).where(TopicCluster.source == "auto"))
+        created_topic_ids = (
+            await db_session.execute(
+                select(EpisodeTopic.topic_id).where(EpisodeTopic.episode_id == episode.id)
+            )
         ).scalars().all()
-        created_topic_ids = [topic.id for topic in auto_topics]
 
-        auto_topic_count_after = len(auto_topics)
+        auto_topic_count_after = await db_session.scalar(
+            select(func.count())
+            .select_from(TopicCluster)
+            .where(TopicCluster.id.in_(created_topic_ids), TopicCluster.source == "auto")
+        )
         episode_topic_count_after = await db_session.scalar(
             select(func.count()).select_from(EpisodeTopic).where(EpisodeTopic.episode_id == episode.id)
         )
+        auto_topic_count_after = auto_topic_count_after or 0
         episode_topic_count_after = episode_topic_count_after or 0
 
-        assert auto_topic_count_after > baseline_auto_topic_count
+        assert auto_topic_count_after >= 1
         assert episode_topic_count_after > baseline_episode_topic_count
     finally:
         await db_session.execute(delete(EpisodeTopic).where(EpisodeTopic.episode_id == episode.id))
