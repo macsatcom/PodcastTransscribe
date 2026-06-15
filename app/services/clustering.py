@@ -20,6 +20,7 @@ Outputs:
       cluster, normalized to [0, 1] over the cluster.
 """
 
+import asyncio
 import logging
 import math
 import uuid
@@ -109,8 +110,7 @@ async def run_clustering():
 
         # Adaptive min_cluster_size — sqrt(N)/4 floored at ABSOLUTE_MIN.
         min_size = max(ABSOLUTE_MIN, int(math.sqrt(len(matrix)) / 4))
-        hdbscan = HDBSCAN(min_cluster_size=min_size, metric="euclidean")
-        labels = hdbscan.fit_predict(matrix)
+        labels = await asyncio.to_thread(compute_clusters, matrix, min_size)
 
         noise = int((labels == -1).sum())
         valid_label_set = sorted(set(int(label) for label in labels) - {-1})
