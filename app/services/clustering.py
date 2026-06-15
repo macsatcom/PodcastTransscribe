@@ -44,6 +44,11 @@ ABSOLUTE_MIN = 3
 LABEL_MODEL = "openai/gpt-4o-mini"
 REPRESENTATIVES_PER_CLUSTER = 5
 LABEL_CONTEXT_CHARS = 2400
+_clustering_lock = asyncio.Lock()
+
+
+def is_clustering_running() -> bool:
+    return _clustering_lock.locked()
 
 
 def compute_clusters(matrix: np.ndarray, min_size: int) -> np.ndarray:
@@ -57,6 +62,14 @@ def compute_clusters(matrix: np.ndarray, min_size: int) -> np.ndarray:
 
 
 async def run_clustering():
+    if _clustering_lock.locked():
+        logger.info("Clustering: skipped, a run is already in progress")
+        return
+    async with _clustering_lock:
+        await _run_clustering_locked()
+
+
+async def _run_clustering_locked():
     async with async_session() as session:
         model_setting = await session.get(Setting, "embedding_model")
         target_model = model_setting.value if model_setting else DEFAULT_EMBEDDING_MODEL
