@@ -518,7 +518,7 @@
         const PAGE = 50;
         try {
           const ids = (this.portal.podcast_ids || []).join(',');
-          const params = new URLSearchParams({ status: 'done', limit: PAGE, offset: this.episodesOffset });
+          const params = new URLSearchParams({ status: 'ready', limit: PAGE, offset: this.episodesOffset });
           if (ids) params.set('podcast_ids', ids);
           const r = await fetch('/api/episodes?' + params);
           if (!r.ok) throw new Error(`Failed loading episodes (${r.status})`);
