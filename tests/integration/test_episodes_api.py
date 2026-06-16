@@ -186,7 +186,7 @@ async def test_episode_list_singular_podcast_id_keeps_backward_compat_response(c
     assert resp.status_code == 200
     data = resp.json()
     assert [e["id"] for e in data] == [str(done_episode.id)]
-    assert data[0]["podcast_title"] is None
+    assert data[0]["podcast_title"] == "Legacy Podcast"
 
 
 @pytest.mark.asyncio
