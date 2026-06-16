@@ -73,12 +73,8 @@ async def create_portal(
     db: AsyncSession = Depends(get_db),
 ):
     slug = re.sub(r"[^a-z0-9-]", "", body.title.lower().replace(" ", "-"))[:50]
-    auth_username = (
-        body.auth_username.strip() if body.auth_username is not None else None
-    )
-    auth_password = (
-        body.auth_password.strip() if body.auth_password is not None else None
-    )
+    auth_username = body.auth_username.strip() if body.auth_username is not None else None
+    auth_password = body.auth_password.strip() if body.auth_password is not None else None
     auth_username = auth_username or None
     auth_password = auth_password or None
 

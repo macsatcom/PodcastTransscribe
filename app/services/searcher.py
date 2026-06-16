@@ -27,9 +27,7 @@ EMBEDDING_MODEL_KEY = "embedding_model"
 DEFAULT_EMBEDDING_MODEL = "openai/text-embedding-3-large"
 
 THRESHOLD_KEY = "semantic_distance_threshold"
-DEFAULT_DISTANCE_THRESHOLD = (
-    0.65  # calibrated for text-embedding-3-large query→chunk distances
-)
+DEFAULT_DISTANCE_THRESHOLD = 0.65  # calibrated for text-embedding-3-large query→chunk distances
 
 # Diversity floor: a supporting chunk in the same episode must be at least
 # this much further from the query than the episode's best chunk to be kept.
@@ -285,10 +283,7 @@ async def search_semantic(
         if len(agg["chunks"]) >= MAX_CHUNKS_PER_EPISODE:
             continue
 
-        if (
-            chunk_payload["distance"] - agg["best_distance"]
-            >= SUPPORTING_CHUNK_DIVERSITY
-        ):
+        if chunk_payload["distance"] - agg["best_distance"] >= SUPPORTING_CHUNK_DIVERSITY:
             agg["chunks"].append(chunk_payload)
 
     aggregated = sorted(by_episode.values(), key=lambda e: e["best_distance"])

@@ -43,14 +43,8 @@ def upgrade() -> None:
     )
 
     # GIN indexes on the stored columns
-    op.execute(
-        "CREATE INDEX IF NOT EXISTS ix_transcripts_ts_danish "
-        "ON transcripts USING gin (ts_danish)"
-    )
-    op.execute(
-        "CREATE INDEX IF NOT EXISTS ix_transcripts_ts_english "
-        "ON transcripts USING gin (ts_english)"
-    )
+    op.execute("CREATE INDEX IF NOT EXISTS ix_transcripts_ts_danish ON transcripts USING gin (ts_danish)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_transcripts_ts_english ON transcripts USING gin (ts_english)")
 
     # Drop the expression indexes — superseded by the stored-column indexes
     op.execute("DROP INDEX IF EXISTS ix_transcripts_fts_danish")
