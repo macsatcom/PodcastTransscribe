@@ -20,10 +20,7 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.execute(
-        "ALTER TABLE portals "
-        "ADD COLUMN IF NOT EXISTS auth_enabled BOOLEAN NOT NULL DEFAULT false"
-    )
+    op.execute("ALTER TABLE portals ADD COLUMN IF NOT EXISTS auth_enabled BOOLEAN NOT NULL DEFAULT false")
     op.execute("ALTER TABLE portals ADD COLUMN IF NOT EXISTS auth_username TEXT")
     op.execute("ALTER TABLE portals ADD COLUMN IF NOT EXISTS auth_password_hash TEXT")
 

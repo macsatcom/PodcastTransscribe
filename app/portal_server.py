@@ -47,7 +47,7 @@ def create_app() -> FastAPI:
         app.state.auth_enabled = bool(portal and portal.auth_enabled)
         app.state.auth_username = (portal.auth_username if portal else "") or ""
         app.state.auth_password_hash = (portal.auth_password_hash if portal else "") or ""
-        app.state.portal_title = (portal.title if portal else "Portal")
+        app.state.portal_title = portal.title if portal else "Portal"
         app.state.session_secret = session_secret
 
     @app.middleware("http")
@@ -61,11 +61,7 @@ def create_app() -> FastAPI:
 
         token = request.cookies.get(auth.SESSION_COOKIE)
         payload = auth.verify_token(getattr(app.state, "session_secret", ""), token)
-        if (
-            payload
-            and payload.get("scope") == "portal"
-            and payload.get("id") == str(portal_id)
-        ):
+        if payload and payload.get("scope") == "portal" and payload.get("id") == str(portal_id):
             return await call_next(request)
 
         return _portal_unauthorized_response(path, request.url.query)

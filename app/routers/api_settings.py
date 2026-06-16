@@ -101,11 +101,7 @@ async def update_auth_settings(body: AuthUpdate, db: AsyncSession = Depends(get_
     has_username = bool(user_row and user_row.value and user_row.value.strip())
     has_password = bool(hash_row and hash_row.value)
 
-    resulting_enabled = (
-        body.enabled
-        if body.enabled is not None
-        else bool(enabled_row and enabled_row.value == "1")
-    )
+    resulting_enabled = body.enabled if body.enabled is not None else bool(enabled_row and enabled_row.value == "1")
 
     if resulting_enabled and not (has_username and has_password):
         await db.rollback()

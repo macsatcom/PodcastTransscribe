@@ -843,7 +843,7 @@ wheels = [
 
 [[package]]
 name = "podcast-transcription-search"
-version = "0.19.2"
+version = "0.19.3"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },

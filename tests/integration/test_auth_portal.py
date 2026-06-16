@@ -77,10 +77,7 @@ async def test_create_portal_with_auth_persists_hash_not_plain(client, db_sessio
     portal_id = resp.json()["id"]
 
     row = await db_session.execute(
-        text(
-            "SELECT auth_enabled, auth_username, auth_password_hash "
-            "FROM portals WHERE id = :id"
-        ),
+        text("SELECT auth_enabled, auth_username, auth_password_hash FROM portals WHERE id = :id"),
         {"id": portal_id},
     )
     enabled, username, pw_hash = row.fetchone()
@@ -134,10 +131,7 @@ async def test_update_portal_can_enable_auth_and_store_hash(client, db_session):
     assert resp.status_code == 200
 
     row = await db_session.execute(
-        text(
-            "SELECT auth_enabled, auth_username, auth_password_hash "
-            "FROM portals WHERE id = :id"
-        ),
+        text("SELECT auth_enabled, auth_username, auth_password_hash FROM portals WHERE id = :id"),
         {"id": portal_id},
     )
     enabled, username, pw_hash = row.fetchone()

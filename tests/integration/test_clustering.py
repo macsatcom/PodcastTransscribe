@@ -196,10 +196,10 @@ async def test_run_clustering_persists_topics(db_session, monkeypatch):
         await clustering.run_clustering()
 
         created_topic_ids = (
-            await db_session.execute(
-                select(EpisodeTopic.topic_id).where(EpisodeTopic.episode_id == episode.id)
-            )
-        ).scalars().all()
+            (await db_session.execute(select(EpisodeTopic.topic_id).where(EpisodeTopic.episode_id == episode.id)))
+            .scalars()
+            .all()
+        )
 
         auto_topic_count_after = await db_session.scalar(
             select(func.count())
