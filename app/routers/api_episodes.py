@@ -1,7 +1,7 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -13,7 +13,15 @@ from app.services.queue_manager import episode_queue
 router = APIRouter(prefix="/api/episodes", tags=["episodes"])
 
 
-def _serialize_episode(e: Episode, queued_ids: set[str], podcast_title: str | None = None) -> dict:
+def _serialize_episode(
+    e: Episode,
+    queued_ids: set[str],
+    podcast_title: str | None = None,
+    char_count: int | None = None,
+) -> dict:
+    # word_count: char_count includes spaces; average ~5.5 chars per word in
+    # speech transcripts (English ~4.5 letter word + 1 space).
+    word_count = round(char_count / 5.5) if char_count else None
     return {
         "id": str(e.id),
         "podcast_id": str(e.podcast_id),
@@ -32,6 +40,8 @@ def _serialize_episode(e: Episode, queued_ids: set[str], podcast_title: str | No
         "abs_episode_id": e.abs_episode_id,
         "chapter_index": e.chapter_index,
         "queued": str(e.id) in queued_ids,
+        "transcript_char_count": char_count,
+        "transcript_word_count": word_count,
     }
 
 
@@ -52,16 +62,20 @@ async def list_episodes(
         except ValueError as exc:
             raise HTTPException(status_code=422, detail="Invalid UUID in podcast_ids") from exc
 
-    use_podcast_ids = len(ids) > 0
-    if use_podcast_ids:
-        query = (
-            select(Episode, Podcast.title.label("podcast_title"))
-            .join(Podcast, Podcast.id == Episode.podcast_id)
-            .where(Episode.podcast_id.in_(ids))
+    # Always join Podcast (title) and LEFT JOIN Transcript (transcript stats).
+    # Consolidates the two former code paths into one consistent query shape.
+    query = (
+        select(
+            Episode,
+            Podcast.title.label("podcast_title"),
+            func.char_length(Transcript.full_text).label("char_count"),
         )
-    else:
-        query = select(Episode)
+        .join(Podcast, Podcast.id == Episode.podcast_id)
+        .outerjoin(Transcript, Transcript.episode_id == Episode.id)
+    )
 
+    if ids:
+        query = query.where(Episode.podcast_id.in_(ids))
     if podcast_id:
         query = query.where(Episode.podcast_id == podcast_id)
     if status:
@@ -75,15 +89,11 @@ async def list_episodes(
     if offset:
         query = query.offset(offset)
     query = query.limit(limit)
+
     result = await db.execute(query)
     queued_ids = {str(eid) for eid in episode_queue.get_queued_ids()}
-
-    if use_podcast_ids:
-        rows = result.all()
-        return [_serialize_episode(row.Episode, queued_ids, row.podcast_title) for row in rows]
-
-    episodes = result.scalars().all()
-    return [_serialize_episode(e, queued_ids, None) for e in episodes]
+    rows = result.all()
+    return [_serialize_episode(row.Episode, queued_ids, row.podcast_title, row.char_count) for row in rows]
 
 
 @router.get("/{episode_id}")

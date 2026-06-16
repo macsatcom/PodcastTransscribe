@@ -387,6 +387,7 @@
                 <span class="episode-meta">
                   <span x-show="ep.published_at" x-text="new Date(ep.published_at).toLocaleDateString('da-DK', {year:'numeric',month:'short',day:'numeric'})"></span>
                   <span x-show="ep.duration_seconds" x-text="(ep.published_at ? ' · ' : '') + formatDuration(ep.duration_seconds)"></span>
+                  <span x-show="ep.transcript_word_count" x-text="' · ' + fmtK(ep.transcript_word_count) + ' words · ' + fmtK(ep.transcript_char_count) + ' chars'"></span>
                 </span>
               </div>
               <div class="episode-badge" x-text="ep.podcast_title || 'Podcast'"></div>
@@ -591,6 +592,12 @@
         const m = Math.floor((secs % 3600) / 60);
         if (h > 0) return `${h}t ${m}m`;
         return `${m}m`;
+      },
+
+      fmtK(n) {
+        if (!n) return '';
+        if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
+        return String(n);
       },
 
       _stripHtml(html) {
