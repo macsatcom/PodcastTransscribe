@@ -27,7 +27,9 @@ EMBEDDING_MODEL_KEY = "embedding_model"
 DEFAULT_EMBEDDING_MODEL = "openai/text-embedding-3-large"
 
 THRESHOLD_KEY = "semantic_distance_threshold"
-DEFAULT_DISTANCE_THRESHOLD = 0.65  # calibrated for text-embedding-3-large query→chunk distances
+DEFAULT_DISTANCE_THRESHOLD = (
+    0.65  # calibrated for text-embedding-3-large query→chunk distances
+)
 
 # Diversity floor: a supporting chunk in the same episode must be at least
 # this much further from the query than the episode's best chunk to be kept.
@@ -103,10 +105,20 @@ async def search_fts(
 ) -> list[dict]:
     lang = _safe_lang(language)
 
-    conditions = [
-        "to_tsvector(CAST(:lang AS regconfig), ft.full_text) @@ phraseto_tsquery(CAST(:lang AS regconfig), :query)"
-    ]
-    params: dict = {"lang": lang, "query": query, "limit": limit}
+    # Use the stored generated tsvector column (ts_danish / ts_english / etc.)
+    # when it exists, so ts_rank reads a precomputed value instead of
+    # recomputing to_tsvector from the full full_text on every matched row.
+    # Columns exist for danish and english; fall back to the expression form
+    # for any other whitelisted language.
+    _stored_ts_col = {
+        "danish": "ft.ts_danish",
+        "english": "ft.ts_english",
+    }
+    ts_col = _stored_ts_col.get(lang, f"to_tsvector('{lang}', ft.full_text)")
+    tsq = f"phraseto_tsquery('{lang}', :query)"
+
+    conditions = [f"{ts_col} @@ {tsq}"]
+    params: dict = {"query": query, "limit": limit}
 
     if podcast_ids:
         conditions.append("e.podcast_id = ANY(:podcast_ids)")
@@ -125,15 +137,14 @@ async def search_fts(
     sql = text(f"""
         SELECT e.id AS episode_id, e.title AS episode_title, e.published_at,
                p.title AS podcast_title, p.cover_url, e.media_type,
-               ts_headline(CAST(:lang AS regconfig), ft.full_text,
-                           phraseto_tsquery(CAST(:lang AS regconfig), :query),
+               ts_headline('{lang}', ft.full_text,
+                           {tsq},
                            'StartSel=<mark>, StopSel=</mark>, MaxWords=60, MinWords=20') AS snippet
         FROM transcripts ft
         JOIN episodes e ON e.id = ft.episode_id
         JOIN podcasts p ON p.id = e.podcast_id
         WHERE {where_clause}
-        ORDER BY ts_rank(to_tsvector(CAST(:lang AS regconfig), ft.full_text),
-                         phraseto_tsquery(CAST(:lang AS regconfig), :query)) DESC
+        ORDER BY ts_rank({ts_col}, {tsq}) DESC
         LIMIT :limit
     """)
 
@@ -204,7 +215,7 @@ async def search_semantic(
     qvec = _vector_literal(query_embedding)
 
     conditions = [
-        "chunk.embedding <=> (:qvec)::vector <= :threshold",
+        "chunk.embedding::halfvec(3072) <=> (:qvec)::halfvec(3072) <= :threshold",
         "chunk.embedding_model = :model",
     ]
     params: dict = {
@@ -229,7 +240,7 @@ async def search_semantic(
 
     sql = text(f"""
         SELECT chunk.text, chunk.chunk_index, chunk.start_time, chunk.end_time,
-               chunk.embedding <=> (:qvec)::vector AS distance,
+               chunk.embedding::halfvec(3072) <=> (:qvec)::halfvec(3072) AS distance,
                e.id AS episode_id, e.title AS episode_title, e.published_at,
                p.title AS podcast_title, p.cover_url, e.media_type
         FROM transcript_chunks chunk
@@ -274,7 +285,10 @@ async def search_semantic(
         if len(agg["chunks"]) >= MAX_CHUNKS_PER_EPISODE:
             continue
 
-        if chunk_payload["distance"] - agg["best_distance"] >= SUPPORTING_CHUNK_DIVERSITY:
+        if (
+            chunk_payload["distance"] - agg["best_distance"]
+            >= SUPPORTING_CHUNK_DIVERSITY
+        ):
             agg["chunks"].append(chunk_payload)
 
     aggregated = sorted(by_episode.values(), key=lambda e: e["best_distance"])

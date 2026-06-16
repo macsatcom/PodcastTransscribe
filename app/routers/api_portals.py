@@ -73,8 +73,12 @@ async def create_portal(
     db: AsyncSession = Depends(get_db),
 ):
     slug = re.sub(r"[^a-z0-9-]", "", body.title.lower().replace(" ", "-"))[:50]
-    auth_username = body.auth_username.strip() if body.auth_username is not None else None
-    auth_password = body.auth_password.strip() if body.auth_password is not None else None
+    auth_username = (
+        body.auth_username.strip() if body.auth_username is not None else None
+    )
+    auth_password = (
+        body.auth_password.strip() if body.auth_password is not None else None
+    )
     auth_username = auth_username or None
     auth_password = auth_password or None
 
@@ -143,7 +147,9 @@ async def update_portal(
         password_value = payload["auth_password"]
         if not isinstance(password_value, str) or not password_value.strip():
             await db.rollback()
-            raise HTTPException(status_code=400, detail="auth_password cannot be blank.")
+            raise HTTPException(
+                status_code=400, detail="auth_password cannot be blank."
+            )
         portal.auth_password_hash = auth.hash_password(password_value.strip())
 
     if portal.auth_enabled and not (portal.auth_username and portal.auth_password_hash):
@@ -204,4 +210,7 @@ async def upload_portal_image(
     else:
         portal.secondary_image = f"/static/portal_images/{filename}"
     await db.commit()
-    return {"status": "uploaded", "path": portal.background_image or portal.secondary_image}
+    return {
+        "status": "uploaded",
+        "path": portal.background_image or portal.secondary_image,
+    }

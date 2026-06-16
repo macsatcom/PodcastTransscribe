@@ -111,9 +111,9 @@
                 Semantic distance threshold
                 <span class="text-secondary" x-text="'(' + semanticThreshold + ')'"></span>
               </label>
-              <input type="range" min="0.30" max="0.60" step="0.01" x-model.number="semanticThreshold" class="w-full">
+              <input type="range" min="0.40" max="0.85" step="0.01" x-model.number="semanticThreshold" class="w-full">
               <p class="text-xs text-secondary" style="margin-top:4px;">
-                Lower = stricter (fewer, more relevant hits). Sweet spot 0.35&ndash;0.45. Default 0.40.
+                Lower = stricter (fewer, more relevant hits). Sweet spot 0.60&ndash;0.70 for text-embedding-3-large. Default 0.65.
               </p>
             </div>
 
@@ -308,6 +308,7 @@ function portalManager() {
 
     async updatePortal() {
       const r = await fetch('/api/portals/' + this.editing, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(this.form) });
+      if (!r.ok) { const err = await r.json().catch(() => ({})); alert('Update failed: ' + (err.detail || r.status)); return; }
       if (r.ok && (this.form.background_image || this.form.secondary_image)) {
         await this._uploadImages(this.editing);
       }
@@ -345,7 +346,7 @@ function adminView() {
     absUrl: '', absApiKey: '', absStatus: '', absOk: false, savingAbs: false,
     saveStatus: '', modelSaveStatus: '', saving: false,
     models: { transcription: [], chat: [], embedding: [] }, modelsLoaded: false, modelsLoading: false, loadError: '',
-    semanticThreshold: 0.40,
+    semanticThreshold: 0.65,
     auth: { enabled: false, username: '', password: '', hasPassword: false, saving: false, status: '', ok: false },
     _initialEmbeddingModel: '',
     _initialThreshold: 0.40,
