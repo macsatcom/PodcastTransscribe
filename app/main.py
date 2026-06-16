@@ -37,7 +37,7 @@ from app.services.clustering import run_clustering
 from app.services.queue_manager import episode_queue
 from app.services.rss_poller import poll_all_feeds
 
-setup_logging()
+setup_logging(log_dir=settings.log_dir)
 logger = logging.getLogger(__name__)
 
 scheduler = AsyncIOScheduler()

@@ -17,6 +17,11 @@ from app.services.summarize import generate_summary
 from app.services.transcribe import transcribe_audio
 
 logger = logging.getLogger(__name__)
+# Structured JSON Lines event log — written to transcription_events.jsonl when
+# log_dir is configured.  Pipeline code uses this logger for key lifecycle events
+# so they are easy to grep/analyse in bulk.
+event_logger = logging.getLogger("app.events.transcription")
+
 _semaphore = asyncio.Semaphore(settings.max_concurrent_processing)
 
 STAGE_TIMEOUTS = {
@@ -141,6 +146,17 @@ async def process_episode(episode_id):
                 episode.status = "ready"
                 await session.commit()
                 logger.info("EPISODE %s: total %.0fs \u2014 ready", episode_id, total)
+                event_logger.info(
+                    "episode_complete",
+                    extra={
+                        "event": "episode_complete",
+                        "episode_id": str(episode_id),
+                        "elapsed_s": int(total),
+                        "model": model_used,
+                        "cost": episode.cost,
+                        "char_count": len(full_text),
+                    },
+                )
 
             except TimeoutError:
                 elapsed = time.monotonic() - t0
@@ -150,6 +166,15 @@ async def process_episode(episode_id):
                     episode_id,
                     stage_at_failure,
                     elapsed,
+                )
+                event_logger.error(
+                    "episode_timeout",
+                    extra={
+                        "event": "episode_timeout",
+                        "episode_id": str(episode_id),
+                        "stage": stage_at_failure,
+                        "elapsed_s": int(elapsed),
+                    },
                 )
                 try:
                     await session.rollback()
@@ -162,13 +187,24 @@ async def process_episode(episode_id):
                     pass
 
             except Exception as e:
+                elapsed = time.monotonic() - t0
                 stage_at_failure = current_stage
                 logger.error(
                     "EPISODE %s: failed in stage '%s' after %.0fs: %s",
                     episode_id,
                     stage_at_failure,
-                    time.monotonic() - t0,
+                    elapsed,
                     e,
+                )
+                event_logger.error(
+                    "episode_failed",
+                    extra={
+                        "event": "episode_failed",
+                        "episode_id": str(episode_id),
+                        "stage": stage_at_failure,
+                        "elapsed_s": int(elapsed),
+                        "error": str(e)[:480],
+                    },
                 )
                 try:
                     await session.rollback()

@@ -153,6 +153,57 @@
       </div>
     </div>
 
+    <!-- Data Quality -->
+    <div class="card" style="padding:20px;max-width:720px;">
+      <h2 class="section-title mb-3">Data Quality &mdash; Transcription Completeness</h2>
+      <div x-show="qualityLoading" class="flex items-center gap-2 text-sm text-secondary">
+        <div class="spinner"></div> Loading&hellip;
+      </div>
+      <template x-if="!qualityLoading && qualityStats.length > 0">
+        <div style="overflow-x:auto;">
+          <table style="width:100%;border-collapse:collapse;font-size:0.8125rem;">
+            <thead>
+              <tr style="border-bottom:1px solid var(--border-subtle);color:var(--text-secondary);">
+                <th style="text-align:left;padding:4px 8px 6px 0;">Podcast</th>
+                <th style="text-align:right;padding:4px 8px 6px;">Transcribed</th>
+                <th style="text-align:right;padding:4px 8px 6px;">Avg WPM</th>
+                <th style="text-align:right;padding:4px 8px 6px;">Below 80 wpm</th>
+                <th style="text-align:right;padding:4px 8px 6px;">Below 120 wpm</th>
+                <th style="padding:4px 0 6px 8px;"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <template x-for="row in qualityStats" :key="row.podcast_id">
+                <tr style="border-bottom:1px solid var(--border-subtle);">
+                  <td style="padding:5px 8px 5px 0;font-weight:500;" x-text="row.podcast_title"></td>
+                  <td style="text-align:right;padding:5px 8px;color:var(--text-secondary);" x-text="row.transcribed.toLocaleString()"></td>
+                  <td style="text-align:right;padding:5px 8px;"
+                      :style="row.avg_wpm < 80 ? 'color:#f87171;font-weight:600;' : row.avg_wpm < 120 ? 'color:#fbbf24;font-weight:600;' : 'color:var(--text-accent);'"
+                      x-text="row.avg_wpm !== null ? row.avg_wpm + ' wpm' : '—'"></td>
+                  <td style="text-align:right;padding:5px 8px;"
+                      :style="row.below_80_pct > 40 ? 'color:#f87171;' : 'color:var(--text-secondary);'"
+                      x-text="row.below_80 + ' (' + row.below_80_pct + '%)'"></td>
+                  <td style="text-align:right;padding:5px 8px;"
+                      :style="row.below_120_pct > 30 ? 'color:#fbbf24;' : 'color:var(--text-secondary);'"
+                      x-text="row.below_120 + ' (' + row.below_120_pct + '%)'"></td>
+                  <td style="padding:5px 0 5px 8px;">
+                    <a :href="'/podcasts/' + row.podcast_id" class="btn btn-ghost btn-sm" style="font-size:0.75rem;">Manage</a>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+          <p class="text-xs text-secondary" style="margin-top:8px;">
+            WPM proxy: <code>word_count / (duration_min)</code>. Below 120&nbsp;wpm suggests a truncated transcript.
+            Click <strong>Manage</strong> &rarr; <strong>Truncated</strong> tab to bulk reset.
+          </p>
+        </div>
+      </template>
+      <div x-show="!qualityLoading && qualityStats.length === 0" class="text-sm text-secondary">
+        No transcribed episodes found.
+      </div>
+    </div>
+
     <!-- Public Portals -->
     <div class="card" style="padding:20px;">
       <h2 class="section-title mb-3">Public Portals</h2>
@@ -353,6 +404,7 @@ function adminView() {
     reembed: { status: 'idle', progress: '0/0', target_model: '' },
     confirm: { open: false, target: '', chunks: 0, episodes: 0 },
     _statusTimer: null,
+    qualityStats: [], qualityLoading: false,
 
     async loadSettings() {
       const r = await fetch('/api/settings');
@@ -387,9 +439,17 @@ function adminView() {
       } catch (e) { /* ignore */ }
 
       await this.refreshReembedStatus();
+      this.loadQualityStats();  // fire-and-forget: loads data quality card
     },
 
-    async saveAuth() {
+    async loadQualityStats() {
+      this.qualityLoading = true;
+      try {
+        const r = await fetch('/api/episodes/quality-stats');
+        if (r.ok) this.qualityStats = await r.json();
+      } catch (e) { /* non-fatal */ }
+      this.qualityLoading = false;
+    },
       this.auth.saving = true; this.auth.status = ''; this.auth.ok = false;
       const body = { enabled: this.auth.enabled, username: this.auth.username };
       if (this.auth.password) body.password = this.auth.password;

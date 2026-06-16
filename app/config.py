@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
     audio_temp_dir: str = "/tmp/audio"
     portal_images_dir: str = "/app/portal_images"
+    log_dir: str = "/app/logs"
     local_whisper_url: str = "http://whisper-cpu:9000"
     max_concurrent_processing: int = 2
     abs_url: str = ""

@@ -1,13 +1,15 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, select
+from pydantic import BaseModel
+from sqlalchemy import delete, func, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.models.episode import Episode
 from app.models.podcast import Podcast
-from app.models.transcript import Transcript
+from app.models.topic import EpisodeTopic
+from app.models.transcript import Transcript, TranscriptChunk
 from app.services.queue_manager import episode_queue
 
 router = APIRouter(prefix="/api/episodes", tags=["episodes"])
@@ -96,6 +98,57 @@ async def list_episodes(
     return [_serialize_episode(row.Episode, queued_ids, row.podcast_title, row.char_count) for row in rows]
 
 
+@router.get("/quality-stats")
+async def quality_stats(db: AsyncSession = Depends(get_db)):
+    """Per-podcast WPM quality summary for all podcasts with at least one ready episode."""
+    sql = text(
+        """
+        SELECT
+            p.id::text AS podcast_id,
+            p.title AS podcast_title,
+            COUNT(e.id) FILTER (WHERE e.status = 'ready') AS transcribed,
+            ROUND(
+                AVG(
+                    char_length(t.full_text) * 60.0 / (5.5 * e.duration_seconds)
+                ) FILTER (WHERE e.status = 'ready' AND e.duration_seconds > 0 AND t.full_text IS NOT NULL)
+            )::int AS avg_wpm,
+            COUNT(e.id) FILTER (
+                WHERE e.status = 'ready'
+                  AND e.duration_seconds > 0
+                  AND t.full_text IS NOT NULL
+                  AND char_length(t.full_text) * 60.0 / (5.5 * e.duration_seconds) < 80
+            ) AS below_80,
+            COUNT(e.id) FILTER (
+                WHERE e.status = 'ready'
+                  AND e.duration_seconds > 0
+                  AND t.full_text IS NOT NULL
+                  AND char_length(t.full_text) * 60.0 / (5.5 * e.duration_seconds) < 120
+            ) AS below_120
+        FROM podcasts p
+        LEFT JOIN episodes e ON e.podcast_id = p.id
+        LEFT JOIN transcripts t ON t.episode_id = e.id
+        GROUP BY p.id, p.title
+        HAVING COUNT(e.id) FILTER (WHERE e.status = 'ready') > 0
+        ORDER BY avg_wpm ASC NULLS LAST
+        """
+    )
+    result = await db.execute(sql)
+    rows = result.mappings().all()
+    return [
+        {
+            "podcast_id": row["podcast_id"],
+            "podcast_title": row["podcast_title"],
+            "transcribed": row["transcribed"],
+            "avg_wpm": row["avg_wpm"],
+            "below_80": row["below_80"],
+            "below_80_pct": round(row["below_80"] / row["transcribed"] * 100) if row["transcribed"] else 0,
+            "below_120": row["below_120"],
+            "below_120_pct": round(row["below_120"] / row["transcribed"] * 100) if row["transcribed"] else 0,
+        }
+        for row in rows
+    ]
+
+
 @router.get("/{episode_id}")
 async def get_episode(episode_id: UUID, db: AsyncSession = Depends(get_db)):
     episode = await db.get(Episode, episode_id)
@@ -127,8 +180,6 @@ async def get_episode(episode_id: UUID, db: AsyncSession = Depends(get_db)):
 
 @router.get("/{episode_id}/chunks")
 async def get_episode_chunks(episode_id: UUID, db: AsyncSession = Depends(get_db)):
-    from app.models.transcript import TranscriptChunk
-
     result = await db.execute(select(Transcript).where(Transcript.episode_id == episode_id))
     transcript = result.scalar_one_or_none()
     if not transcript:
@@ -158,14 +209,19 @@ async def reset_episode(
     episode = await db.get(Episode, episode_id)
     if not episode:
         return {"error": "not found"}
+    # Remove stale topic assignments derived from this transcript.
+    await db.execute(delete(EpisodeTopic).where(EpisodeTopic.episode_id == episode_id))
+    # Delete transcript (TranscriptChunk cascades via FK at DB level or ORM).
     result = await db.execute(select(Transcript).where(Transcript.episode_id == episode_id))
     transcript = result.scalar_one_or_none()
     if transcript:
+        await db.execute(delete(TranscriptChunk).where(TranscriptChunk.transcript_id == transcript.id))
         await db.delete(transcript)
     episode.status = "new"
     episode.error_message = None
     episode.model_used = None
     episode.processing_seconds = None
+    episode.cost = None
     await db.commit()
     return {"status": "reset"}
 
@@ -189,3 +245,74 @@ async def process_batch(data: dict):
 async def process_all_pending():
     count = await episode_queue.enqueue_all_pending()
     return {"status": "enqueued", "count": count}
+
+
+class ResetTruncatedRequest(BaseModel):
+    wpm_threshold: float = 120.0
+    podcast_id: UUID | None = None
+    dry_run: bool = False
+
+
+@router.post("/reset-truncated")
+async def reset_truncated(req: ResetTruncatedRequest, db: AsyncSession = Depends(get_db)):
+    """Find ready episodes with WPM below threshold and reset them to 'new' for re-processing.
+
+    Uses char_length(full_text) / 5.5 / (duration_seconds / 60) as the WPM proxy.
+    Only targets episodes with status='ready' that have a transcript and duration.
+    """
+    # Identify candidate episodes: ready + has transcript + below WPM threshold
+    candidate_query = (
+        select(Episode.id, Episode.title, Podcast.title.label("podcast_title"))
+        .join(Transcript, Transcript.episode_id == Episode.id)
+        .join(Podcast, Podcast.id == Episode.podcast_id)
+        .where(Episode.status == "ready")
+        .where(Episode.duration_seconds > 0)
+        .where(Transcript.full_text.is_not(None))
+        .where(func.char_length(Transcript.full_text) * 60.0 / (5.5 * Episode.duration_seconds) < req.wpm_threshold)
+    )
+    if req.podcast_id:
+        candidate_query = candidate_query.where(Episode.podcast_id == req.podcast_id)
+
+    result = await db.execute(candidate_query)
+    rows = result.all()
+    episode_ids = [row[0] for row in rows]
+    count = len(episode_ids)
+
+    preview = [
+        {
+            "id": str(row[0]),
+            "title": row[1],
+            "podcast": row[2],
+        }
+        for row in rows[:10]
+    ]
+
+    if req.dry_run or not episode_ids:
+        return {"affected": count, "dry_run": True, "preview": preview}
+
+    # Bulk delete/reset — ordered to respect FK constraints:
+    # 1. Remove stale topic assignments
+    await db.execute(delete(EpisodeTopic).where(EpisodeTopic.episode_id.in_(episode_ids)))
+
+    # 2. Get transcript IDs, then delete chunks, then transcripts
+    tr_result = await db.execute(select(Transcript.id).where(Transcript.episode_id.in_(episode_ids)))
+    transcript_ids = [r[0] for r in tr_result.all()]
+    if transcript_ids:
+        await db.execute(delete(TranscriptChunk).where(TranscriptChunk.transcript_id.in_(transcript_ids)))
+        await db.execute(delete(Transcript).where(Transcript.id.in_(transcript_ids)))
+
+    # 3. Reset episode fields
+    await db.execute(
+        update(Episode)
+        .where(Episode.id.in_(episode_ids))
+        .values(
+            status="new",
+            model_used=None,
+            cost=None,
+            processing_seconds=None,
+            error_message=None,
+        )
+    )
+    await db.commit()
+
+    return {"affected": count, "dry_run": False, "preview": preview}

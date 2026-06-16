@@ -20,6 +20,7 @@ services:
     volumes:
       - ${DATA_DIR:-./data}/audio_cache:/tmp/audio
       - ${DATA_DIR:-./data}/portal_images:/app/portal_images
+      - ${DATA_DIR:-./data}/logs:/app/logs
     depends_on:
       db:
         condition: service_healthy

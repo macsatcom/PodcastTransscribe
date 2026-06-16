@@ -97,6 +97,7 @@
       <button @click="statusFilter = 'processing'" class="tab" :class="{ active: statusFilter === 'processing' }">Processing</button>
       <button @click="statusFilter = 'ready'" class="tab" :class="{ active: statusFilter === 'ready' }">Ready</button>
       <button @click="statusFilter = 'error'" class="tab" :class="{ active: statusFilter === 'error' }">Error</button>
+      <button @click="statusFilter = 'truncated'" class="tab" :class="{ active: statusFilter === 'truncated' }">Truncated</button>
     </div>
 
     <div class="flex items-center gap-3">
@@ -109,6 +110,21 @@
       <button @click="processAll()" x-text="processingAll ? 'Processing...' : 'Process All Pending'"
               class="btn btn-secondary btn-sm" :disabled="processingAll">
       </button>
+      <!-- Reset-truncated controls: shown only on Truncated tab -->
+      <template x-if="statusFilter === 'truncated'">
+        <span class="flex items-center gap-2" style="border-left:1px solid var(--border-subtle);padding-left:10px;">
+          <label class="text-xs text-secondary">WPM limit:</label>
+          <input type="range" min="60" max="200" step="5" x-model.number="truncatedThreshold" style="width:80px;">
+          <span class="text-xs font-bold" x-text="truncatedThreshold + ' wpm'"></span>
+          <button @click="previewReset()" class="btn btn-ghost btn-sm"
+                  x-text="resetPreview !== null ? filteredEpisodes.length + ' episodes · reset?' : 'Preview reset'"></button>
+          <button @click="confirmAndReset()" class="btn btn-sm"
+                  style="background:#dc2626;color:#fff;padding:2px 10px;"
+                  :disabled="resetInProgress || resetPreview === 0"
+                  x-text="resetInProgress ? 'Resetting...' : 'Reset to New'">
+          </button>
+        </span>
+      </template>
       <button x-show="!allEpisodesLoaded && !loadingStopped" @click="stopLoading()" class="btn btn-ghost btn-sm">
         Stop loading older episodes
       </button>
@@ -141,6 +157,10 @@
             <span x-text="ep.published_at ? new Date(ep.published_at).toLocaleDateString('da-DK',{day:'2-digit',month:'short'}) : ''"></span>
             <span x-show="ep.duration_seconds" x-text="' · ' + Math.floor(ep.duration_seconds / 60) + 'm'"></span>
             <span x-show="ep.transcript_word_count" x-text="' · ' + fmtK(ep.transcript_word_count) + ' words · ' + fmtK(ep.transcript_char_count) + ' chars'"></span>
+            <template x-if="ep.status === 'ready' && epWpm(ep) !== null">
+              <span :style="epWpm(ep) < truncatedThreshold ? 'color:#f87171;font-weight:600;' : 'color:var(--text-tertiary);'"
+                    x-text="' · ' + epWpm(ep) + ' wpm'"></span>
+            </template>
           </div>
           <div x-show="ep.model_used" style="font-size:0.75rem;color:var(--text-tertiary);margin-top:1px;" x-text="ep.model_used + (ep.processing_seconds ? ' · ' + Math.round(ep.processing_seconds / 60) + 'm' : '') + (ep.cost ? ' · $' + ep.cost.toFixed(4) : '')"></div>
         </a>
@@ -191,6 +211,7 @@ function podcastDetail() {
     processingAll: false, processAllResult: '',
     filterText: '', statusFilter: '',
     selectedById: {},
+    truncatedThreshold: 120, resetPreview: null, resetInProgress: false,
     showEdit: false, editTitle: '', editAuthor: '', editDescription: '', editCoverUrl: '', editLanguage: '',
     saving: false, deleteTarget: false, deleting: false,
     _filterDebounceTimer: null,
@@ -211,6 +232,7 @@ function podcastDetail() {
     async init() {
       this.$watch('episodes', () => this.recomputeFilteredEpisodes());
       this.$watch('statusFilter', () => this.recomputeFilteredEpisodes());
+      this.$watch('truncatedThreshold', () => this.recomputeFilteredEpisodes());
       this.$watch('filterText', () => {
         clearTimeout(this._filterDebounceTimer);
         this._filterDebounceTimer = setTimeout(() => this.recomputeFilteredEpisodes(), 300);
@@ -227,10 +249,18 @@ function podcastDetail() {
       if (this.statusFilter) {
         list = list.filter(e => {
           if (this.statusFilter === 'processing') return ['downloading','transcribing','summarizing','indexing','processing'].includes(e.status);
+          if (this.statusFilter === 'truncated') return e.status === 'ready' && this.epWpm(e) !== null && this.epWpm(e) < this.truncatedThreshold;
           return e.status === this.statusFilter;
         });
       }
       this.filteredEpisodes = list;
+      // Clear preview count when filter changes so it matches the new list.
+      this.resetPreview = null;
+    },
+
+    epWpm(ep) {
+      if (!ep.transcript_word_count || !ep.duration_seconds) return null;
+      return Math.round(ep.transcript_word_count / (ep.duration_seconds / 60));
     },
 
     toggleSelect(id) {
@@ -416,6 +446,44 @@ function podcastDetail() {
       if (!n) return '';
       if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
       return String(n);
+    },
+
+    async previewReset() {
+      const r = await fetch('/api/episodes/reset-truncated', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          wpm_threshold: this.truncatedThreshold,
+          podcast_id: this.podcastId,
+          dry_run: true,
+        }),
+      });
+      const d = await r.json();
+      this.resetPreview = d.affected;
+    },
+
+    async confirmAndReset() {
+      const count = this.resetPreview !== null ? this.resetPreview : this.filteredEpisodes.length;
+      if (!confirm('Reset ' + count + ' truncated episode(s) to "new" so they are re-transcribed?\n\nThis deletes their transcripts, chunks, and topic assignments.')) return;
+      this.resetInProgress = true;
+      try {
+        await fetch('/api/episodes/reset-truncated', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            wpm_threshold: this.truncatedThreshold,
+            podcast_id: this.podcastId,
+            dry_run: false,
+          }),
+        });
+        this.resetPreview = null;
+        this.episodes = [];
+        this.selectedById = {};
+        this._nextOffset = 0;
+        await this.loadEpisodes();
+      } finally {
+        this.resetInProgress = false;
+      }
     },
   };
 }
