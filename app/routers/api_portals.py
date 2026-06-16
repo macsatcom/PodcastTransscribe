@@ -141,11 +141,16 @@ async def update_portal(
 
     if "auth_password" in payload:
         password_value = payload["auth_password"]
-        if isinstance(password_value, str) and password_value.strip():
-            # Non-empty → update the stored hash
+        if not password_value:
+            # None or "" → no change (edit form sends "" when not changing password)
+            pass
+        elif password_value.strip():
+            # Non-empty valid string → update hash
             portal.auth_password_hash = auth.hash_password(password_value.strip())
-        # Empty string means "leave existing password unchanged";
-        # the edit form always sends "" when the user hasn't typed a new password.
+        else:
+            # Non-empty but whitespace-only → user tried to set a blank password
+            await db.rollback()
+            raise HTTPException(status_code=400, detail="auth_password cannot be blank.")
 
     if portal.auth_enabled and not (portal.auth_username and portal.auth_password_hash):
         await db.rollback()
