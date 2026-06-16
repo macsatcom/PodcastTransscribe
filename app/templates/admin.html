@@ -450,6 +450,8 @@ function adminView() {
       } catch (e) { /* non-fatal */ }
       this.qualityLoading = false;
     },
+
+    async saveAuth() {
       this.auth.saving = true; this.auth.status = ''; this.auth.ok = false;
       const body = { enabled: this.auth.enabled, username: this.auth.username };
       if (this.auth.password) body.password = this.auth.password;
