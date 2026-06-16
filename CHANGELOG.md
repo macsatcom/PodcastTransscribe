@@ -4,6 +4,34 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.19.3] - 2026-06-16
+
+### Added
+
+- **Optional authentication for main app and portals** — login/logout UI and
+  admin-managed credentials were added for the main app and per-portal access,
+  disabled by default to preserve existing open deployments.
+- **Portal Episodes tab** — portal home now includes an Episodes tab with
+  paginated browsing and compact/tight list rendering tuned for fast scanning.
+- **Episodes API podcast filter** — `GET /api/episodes` now supports
+  `podcast_ids` for scoped episode retrieval in portal and admin views.
+
+### Changed
+
+- **Clustering execution model** — topic refresh now runs off the event loop via
+  `asyncio.to_thread`, keeping the web server responsive during clustering.
+- **Topic refresh trigger behavior** — manual `Generate topics` refresh became
+  fire-and-forget and now returns explicit `started` / `already_running`
+  statuses.
+
+### Fixed
+
+- **Pathological HDBSCAN runtime on high-dimensional embeddings** — clustering
+  now forces `algorithm="brute"`, eliminating the severe slowdown observed with
+  default auto tree selection on 3072-d vectors.
+- **Concurrent clustering overlap** — added a process-level lock so scheduled
+  and manual runs do not execute simultaneously.
+
 ## [0.19.2] - 2026-06-13
 
 ### Added
