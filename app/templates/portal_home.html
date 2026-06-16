@@ -335,18 +335,52 @@
 
       <!-- ───────── EPISODES TAB ───────── -->
       <div x-show="tab==='episodes'" x-cloak>
-        <div x-show="episodesLoading && episodes.length === 0" style="color:var(--text-dim);padding:32px;text-align:center;">
-          <span class="spinner"></span> Loading episodes...
+
+        <!-- Filter / sort bar -->
+        <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px;">
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input type="text" x-model="epFilter" placeholder="Filter episodes…" class="input"
+                   style="flex:1;padding:8px 12px;font-size:0.875rem;">
+            <button @click="epSort = epSort === 'desc' ? 'asc' : 'desc'"
+                    class="btn btn-ghost btn-sm" style="white-space:nowrap;min-width:90px;"
+                    x-text="epSort === 'desc' ? '↓ Newest' : '↑ Oldest'"></button>
+          </div>
+          <div x-show="episodesYears.length > 0" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+            <span style="font-size:0.75rem;color:var(--text-dim);margin-right:2px;">Year:</span>
+            <button @click="epYear = ''" class="btn btn-ghost btn-sm"
+                    :style="epYear === '' ? 'border-color:var(--accent);color:var(--accent);' : ''"
+                    style="padding:3px 10px;font-size:0.75rem;">All</button>
+            <template x-for="y in episodesYears" :key="y">
+              <button @click="epYear = epYear == y ? '' : y" class="btn btn-ghost btn-sm"
+                      :style="epYear == y ? 'border-color:var(--accent);color:var(--accent);' : ''"
+                      style="padding:3px 10px;font-size:0.75rem;" x-text="y"></button>
+            </template>
+          </div>
         </div>
-        <div x-show="episodesError && episodes.length === 0" class="empty">
+
+        <!-- Loading / error / empty states -->
+        <div x-show="episodesLoading && allEpisodes.length === 0"
+             style="color:var(--text-dim);padding:32px;text-align:center;">
+          <span class="spinner"></span> Loading episodes…
+        </div>
+        <div x-show="episodesLoading && allEpisodes.length > 0"
+             style="font-size:0.75rem;color:var(--text-dim);margin-bottom:8px;"
+             x-text="'Loading… ' + allEpisodes.length + ' episodes so far'"></div>
+        <div x-show="episodesError && allEpisodes.length === 0" class="empty">
           <div>Could not load episodes.</div>
-          <button @click="loadEpisodes()" class="btn btn-ghost btn-sm" style="margin-top:10px;">Retry</button>
+          <button @click="episodesLoaded = false; allEpisodes = []; loadEpisodes();"
+                  class="btn btn-ghost btn-sm" style="margin-top:10px;">Retry</button>
         </div>
-        <div x-show="!episodesLoading && episodes.length === 0 && episodesLoaded" class="empty">
+        <div x-show="episodesLoaded && filteredEpisodes.length === 0 && allEpisodes.length > 0" class="empty">
+          No episodes match your filter.
+        </div>
+        <div x-show="episodesLoaded && allEpisodes.length === 0" class="empty">
           No transcribed episodes yet.
         </div>
+
+        <!-- Episode list -->
         <div class="episodes-list">
-          <template x-for="ep in episodes" :key="ep.id">
+          <template x-for="ep in filteredEpisodes" :key="ep.id">
             <a :href="'/episodes/' + ep.id" class="episode-row">
               <div class="episode-head">
                 <span class="episode-title" x-text="ep.title"></span>
@@ -355,19 +389,16 @@
                   <span x-show="ep.duration_seconds" x-text="(ep.published_at ? ' · ' : '') + formatDuration(ep.duration_seconds)"></span>
                 </span>
               </div>
-
               <div class="episode-badge" x-text="ep.podcast_title || 'Podcast'"></div>
-
               <div class="episode-summary line-clamp-4" x-text="episodeSummary(ep)"></div>
             </a>
           </template>
         </div>
-        <div x-show="episodesHasMore" style="text-align:center;margin-top:20px;">
-          <button @click="loadEpisodes()" :disabled="episodesLoading" class="btn btn-ghost btn-sm">
-            <span x-show="episodesLoading"><span class="spinner"></span></span>
-            <span x-text="episodesLoading ? 'Loading...' : 'Load more'"></span>
-          </button>
-        </div>
+
+        <!-- Result count -->
+        <div x-show="episodesLoaded && filteredEpisodes.length > 0"
+             style="text-align:center;margin-top:16px;font-size:0.75rem;color:var(--text-dim);"
+             x-text="filteredEpisodes.length + ' of ' + allEpisodes.length + ' episodes'"></div>
       </div>
 
       <!-- Episode modal (Topics) -->
@@ -431,8 +462,21 @@
       results: [], searchMeta: { threshold: null, model: null, candidate_count: 0 },
 
       // Episodes state
-      episodes: [], episodesLoaded: false, episodesOffset: 0,
-      episodesHasMore: false, episodesLoading: false, episodesError: false,
+      allEpisodes: [], episodesLoaded: false, episodesLoading: false, episodesError: false,
+      epFilter: '', epYear: '', epSort: 'desc',
+
+      get episodesYears() {
+        const s = new Set(this.allEpisodes.filter(e => e.published_at).map(e => new Date(e.published_at).getFullYear()));
+        return [...s].sort((a, b) => b - a);
+      },
+
+      get filteredEpisodes() {
+        let list = this.allEpisodes;
+        if (this.epYear) list = list.filter(e => e.published_at && new Date(e.published_at).getFullYear() == this.epYear);
+        const q = (this.epFilter || '').trim().toLowerCase();
+        if (q) list = list.filter(e => (e.title || '').toLowerCase().includes(q) || this._stripHtml(e.description || '').toLowerCase().includes(q));
+        return this.epSort === 'asc' ? [...list].reverse() : list;
+      },
 
       // Insights state
       topics: [], topicsLoading: false,
@@ -442,14 +486,14 @@
       async init() {
         const hash = window.location.hash.replace('#', '');
         if (hash === 'insights') { this.tab = 'insights'; await this.loadTopics(); }
-        if (hash === 'episodes') { this.tab = 'episodes'; await this.loadEpisodes(); }
+        if (hash === 'episodes') { this.tab = 'episodes'; this.loadEpisodes(); }
       },
 
       setTab(name) {
         this.tab = name;
         history.replaceState(null, '', '#' + name);
         if (name === 'insights' && this.topics.length === 0) this.loadTopics();
-        if (name === 'episodes' && !this.episodesLoaded) this.loadEpisodes();
+        if (name === 'episodes' && !this.episodesLoaded && !this.episodesLoading) this.loadEpisodes();
       },
 
       askAbout(r) {
@@ -512,33 +556,30 @@
       },
 
       async loadEpisodes() {
-        if (this.episodesLoading) return;
+        if (this.episodesLoaded || this.episodesLoading) return;
         this.episodesLoading = true;
         this.episodesError = false;
-        const PAGE = 50;
+        const PAGE = 500;
+        const ids = (this.portal.podcast_ids || []).join(',');
+        let offset = 0, hasMore = true;
         try {
-          const ids = (this.portal.podcast_ids || []).join(',');
-          const params = new URLSearchParams({ status: 'ready', limit: PAGE, offset: this.episodesOffset });
-          if (ids) params.set('podcast_ids', ids);
-          const r = await fetch('/api/episodes?' + params);
-          if (!r.ok) throw new Error(`Failed loading episodes (${r.status})`);
-          const data = await r.json();
-          const page = Array.isArray(data)
-            ? data.map(ep => ({
-              ...ep,
-              summary_excerpt: ep.transcript?.summary
-                ? ep.transcript.summary.slice(0, 150) + (ep.transcript.summary.length > 150 ? '\u2026' : '')
-                : null,
-            }))
-            : [];
-          this.episodes = this.episodes.concat(page);
-          this.episodesOffset += page.length;
-          this.episodesHasMore = page.length === PAGE;
+          while (hasMore) {
+            const params = new URLSearchParams({ status: 'ready', limit: PAGE, offset });
+            if (ids) params.set('podcast_ids', ids);
+            const r = await fetch('/api/episodes?' + params);
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            const page = await r.json();
+            if (Array.isArray(page) && page.length > 0) {
+              this.allEpisodes = this.allEpisodes.concat(page);
+              offset += page.length;
+              hasMore = page.length === PAGE;
+            } else {
+              hasMore = false;
+            }
+          }
         } catch (e) {
           console.error(e);
           this.episodesError = true;
-          this.episodesLoading = false;
-          return;
         }
         this.episodesLoading = false;
         this.episodesLoaded = true;
@@ -552,13 +593,17 @@
         return `${m}m`;
       },
 
+      _stripHtml(html) {
+        if (!html) return '';
+        const d = document.createElement('div');
+        d.innerHTML = html;
+        return d.textContent || d.innerText || '';
+      },
+
       episodeSummary(ep) {
-        if (ep?.summary_excerpt && ep.summary_excerpt.trim()) return ep.summary_excerpt;
-        if (ep?.description && ep.description.trim()) {
-          const d = ep.description.trim();
-          return d.length > 220 ? d.slice(0, 220) + '\u2026' : d;
-        }
-        return 'No summary available.';
+        const raw = this._stripHtml(ep?.description || '').trim();
+        if (!raw) return '';
+        return raw.length > 240 ? raw.slice(0, 240) + '\u2026' : raw;
       },
 
       async askQuestion() {
